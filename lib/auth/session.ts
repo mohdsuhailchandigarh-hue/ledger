@@ -92,10 +92,36 @@ export async function deleteUserSession(): Promise<void> {
   }
 }
 
+// ─── Admin Cryptographic Session Helpers ──────────────────────
+const SESSION_SECRET = process.env.SESSION_SECRET || 'fallback-secret-for-development-only-123456';
+
+function signToken(payload: string): string {
+  const signature = crypto
+    .createHmac('sha256', SESSION_SECRET)
+    .update(payload)
+    .digest('hex');
+  return `${payload}.${signature}`;
+}
+
+function verifyToken(token: string): string | null {
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+  const [payload, signature] = parts;
+  const expectedSignature = crypto
+    .createHmac('sha256', SESSION_SECRET)
+    .update(payload)
+    .digest('hex');
+  if (signature !== expectedSignature) return null;
+  return payload;
+}
+
 // ─── Admin Session ────────────────────────────────────────────
 export async function createAdminSession(): Promise<void> {
   const cookieStore = await cookies();
-  const token = generateToken();
+  const username = process.env.ADMIN_USERNAME || 'admin';
+  const expiresAt = Date.now() + 60 * 60 * 24 * 365 * 100 * 1000; // 100 years
+  const payload = `${username}:${expiresAt}`;
+  const token = signToken(payload);
 
   cookieStore.set(ADMIN_COOKIE, token, {
     httpOnly: true,
@@ -104,17 +130,23 @@ export async function createAdminSession(): Promise<void> {
     path: '/',
     maxAge: 60 * 60 * 24 * 365 * 100, // 100 years
   });
-
-  // Store the admin token in env context (simple approach)
-  // In production, use Redis or similar
-  process.env._ADMIN_TOKEN = token;
 }
 
 export async function getAdminSession(): Promise<boolean> {
   const cookieStore = await cookies();
   const token = cookieStore.get(ADMIN_COOKIE)?.value;
   if (!token) return false;
-  return token === process.env._ADMIN_TOKEN;
+
+  const payload = verifyToken(token);
+  if (!payload) return false;
+
+  const [username, expiresAtStr] = payload.split(':');
+  if (username !== (process.env.ADMIN_USERNAME || 'admin')) return false;
+
+  const expiresAt = parseInt(expiresAtStr, 10);
+  if (isNaN(expiresAt) || expiresAt < Date.now()) return false;
+
+  return true;
 }
 
 export async function deleteAdminSession(): Promise<void> {

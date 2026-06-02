@@ -11,6 +11,34 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Temporary environment variable audit for production debugging
+  const REQUIRED_VARS = [
+    'ADMIN_USERNAME',
+    'ADMIN_PASSWORD',
+    'SESSION_SECRET',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'NEXT_PUBLIC_SUPABASE_URL',
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  ];
+  
+  const auditResult: Record<string, string> = {};
+  const undefinedVars: string[] = [];
+
+  REQUIRED_VARS.forEach((v) => {
+    const val = process.env[v];
+    if (val && val.trim() !== '') {
+      auditResult[v] = `DEFINED (length: ${val.length})`;
+    } else {
+      auditResult[v] = 'UNDEFINED';
+      undefinedVars.push(v);
+    }
+  });
+
+  console.log('[ADMIN AUDIT] Environment Variables Status:', auditResult);
+  if (undefinedVars.length > 0) {
+    console.error('[ADMIN AUDIT] [ERROR] The following env variables are UNDEFINED:', undefinedVars);
+  }
+
   const isAdmin = await getAdminSession();
   if (!isAdmin) redirect('/login?role=admin');
 
