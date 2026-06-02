@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background -->
+  <rect width="32" height="32" rx="7" fill="#0F4C75"/>
+
+  <!-- Lines (drawn first) -->
+  <line x1="16" y1="8"  x2="7"  y2="24" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+  <line x1="16" y1="8"  x2="25" y2="24" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+  <line x1="7"  y1="24" x2="25" y2="24" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+
+  <!-- Node A top — filled -->
+  <circle cx="16" cy="8"  r="3.5" fill="white"/>
+  <!-- Node B bottom-left — outline -->
+  <circle cx="7"  cy="24" r="3.5" fill="#0F4C75" stroke="white" stroke-width="2"/>
+  <!-- Node C bottom-right — filled -->
+  <circle cx="25" cy="24" r="3.5" fill="white"/>
+</svg>
