@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { getMyConnectionsAction, getPendingRequestsAction } from '@/lib/actions/connection.actions';
 import ConnectionsClient from '@/components/connections/ConnectionsClient';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = { title: 'Connections | Shared Ledger' };
 
 export default async function ConnectionsPage() {

@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getUserFromSession, getAdminSession } from '@/lib/auth/session';
 
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const isAdmin = await getAdminSession();
   if (isAdmin) redirect('/admin');

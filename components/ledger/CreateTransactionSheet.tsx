@@ -612,7 +612,7 @@ export default function CreateTransactionSheet({
             .create-txn-sheet {
               width: 100%;
               max-width: 520px;
-              height: auto;
+              height: 680px;
               max-height: 90dvh;
               border-top: 1px solid var(--border-default);
               border-left: 1px solid var(--border-default);

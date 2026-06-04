@@ -18,10 +18,12 @@ function getClient() {
   return instance;
 }
 
+const dummyInit = () => createClient('', '');
+
 // Client-side Supabase client
 // Wrapped in Proxy to defer createClient initialization until first use
-export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
-  get(target, prop, receiver) {
+export const supabase = new Proxy({} as any, {
+  get(target, prop) {
     const client = getClient();
     const value = Reflect.get(client, prop);
     if (typeof value === 'function') {
@@ -29,4 +31,4 @@ export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
     }
     return value;
   },
-});
+}) as unknown as ReturnType<typeof dummyInit>;

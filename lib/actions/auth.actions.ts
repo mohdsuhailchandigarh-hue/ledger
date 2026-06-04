@@ -186,3 +186,48 @@ export async function toggleUserStatusAction(userId: string, isActive: boolean):
 
   return {};
 }
+
+export async function changePasswordAction(
+  prevState: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const username = formData.get('username') as string;
+  const oldPassword = formData.get('old_password') as string;
+  const newPassword = formData.get('new_password') as string;
+  const confirmPassword = formData.get('confirm_password') as string;
+
+  if (!username || !oldPassword || !newPassword || !confirmPassword) {
+    return { error: 'All fields are required' };
+  }
+  if (newPassword.length < 6) {
+    return { error: 'New password must be at least 6 characters' };
+  }
+  if (newPassword !== confirmPassword) {
+    return { error: 'New passwords do not match' };
+  }
+
+  const { data: user, error } = await supabaseAdmin
+    .from('users')
+    .select('id, password_hash, is_active')
+    .eq('username', username.toLowerCase().trim())
+    .single();
+
+  if (error || !user) return { error: 'User not found' };
+  if (!user.is_active) return { error: 'Account is disabled. Contact admin.' };
+
+  const passwordMatch = await bcrypt.compare(oldPassword, user.password_hash);
+  if (!passwordMatch) return { error: 'Current password is incorrect' };
+
+  const newHash = await bcrypt.hash(newPassword, 12);
+  const { error: updateError } = await supabaseAdmin
+    .from('users')
+    .update({ password_hash: newHash })
+    .eq('id', user.id);
+
+  if (updateError) return { error: 'Failed to update password. Try again.' };
+
+  // Invalidate all existing sessions — user must re-login on every device
+  await supabaseAdmin.from('sessions').delete().eq('user_id', user.id);
+
+  return { success: true };
+}

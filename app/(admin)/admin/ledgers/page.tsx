@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { BookOpen, ArrowRight } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 function formatDate(isoStr: string): string {
   const raw = isoStr?.slice(0, 10);
   if (!raw) return '—';

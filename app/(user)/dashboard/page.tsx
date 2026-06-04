@@ -12,7 +12,7 @@ import { getPendingActionsAction } from '@/lib/actions/transaction.actions';
 import MonthlyPnLCard from '@/components/dashboard/MonthlyPnLCard';
 
 export const metadata: Metadata = { title: 'Dashboard | Shared Ledger' };
-export const revalidate = 30;
+export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const user = await getUserFromSession();
@@ -24,6 +24,7 @@ export default async function DashboardPage() {
       .from('connections')
       .select(`
         id, created_at, contact_name, contact_phone,
+        user_a_id, user_b_id, deleted_by_a, deleted_by_b,
         user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
         user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
       `)
@@ -33,6 +34,7 @@ export default async function DashboardPage() {
       .from('connections')
       .select(`
         id, created_at, contact_name, contact_phone,
+        user_a_id, user_b_id,
         user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
         user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
       `)
@@ -41,7 +43,7 @@ export default async function DashboardPage() {
     supabaseAdmin
       .from('transactions')
       .select(`
-        id, amount, direction, note, status, created_at, transaction_date,
+        id, connection_id, amount, direction, note, status, created_at, transaction_date,
         creator:users!transactions_creator_id_fkey(id, name, username),
         counterparty:users!transactions_counterparty_id_fkey(id, name, username)
       `)
@@ -61,27 +63,40 @@ export default async function DashboardPage() {
   let platformConns: any[] = [];
   let personalConns: any[] = [];
 
-  if (platformConnsResult.error && platformConnsResult.error.code === '42703') {
+  if (platformConnsResult.error && (platformConnsResult.error.code === '42703' || platformConnsResult.error.code === 'PGRST204')) {
     const fallbackPlatformResult = await supabaseAdmin
       .from('connections')
       .select(`
-        id, created_at,
+        id, created_at, user_a_id, user_b_id,
         user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
         user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
       `)
       .not('user_b_id', 'is', null)
       .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`);
-      
+
     platformConns = fallbackPlatformResult.data ?? [];
   } else {
-    platformConns = (platformConnsResult.data ?? []) as any[];
+    // Filter out rows where this user has soft-deleted their side
+    const rawPlatform = (platformConnsResult.data ?? []) as any[];
+    platformConns = rawPlatform.filter((c) => {
+      if (c.user_a_id === user.id) return !c.deleted_by_a;
+      if (c.user_b_id === user.id) return !c.deleted_by_b;
+      return true;
+    });
     personalConns = (personalConnsResult.data ?? []) as any[];
   }
 
   const connections = [...platformConns, ...personalConns].sort((a, b) =>
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
-  const transactions = (recentTxns.data ?? []) as any[];
+  const deletedConnectionIds = new Set(
+    (platformConnsResult.data ?? [])
+      .filter((c) => (c.user_a_id === user.id ? c.deleted_by_a : c.deleted_by_b))
+      .map((c) => c.id)
+  );
+  const transactions = ((recentTxns.data ?? []) as any[]).filter(
+    (txn) => !deletedConnectionIds.has(txn.connection_id)
+  );
   const balanceMap: Record<string, number> = {};
   for (const b of (balancesResult.data ?? [])) {
     balanceMap[b.connection_id] = Number(b.net_amount);

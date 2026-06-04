@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import LedgerTimeline from '@/components/ledger/LedgerTimeline';
 import CreateTransactionSheet from '@/components/ledger/CreateTransactionSheet';
 import AnimatedCounter from '@/components/motion/AnimatedCounter';
-import { Plus, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Plus, ArrowLeft, RefreshCw, Trash2, AlertTriangle, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { deleteLedgerAction } from '@/lib/actions/connection.actions';
 
 type Transaction = {
   id: string;
@@ -26,6 +27,7 @@ type Props = {
   currentUserId: string;
   transactions: Transaction[];
   netBalance: number;
+  isDisconnected?: boolean;
 };
 
 export default function LedgerClient({
@@ -34,14 +36,30 @@ export default function LedgerClient({
   currentUserId,
   transactions,
   netBalance,
+  isDisconnected = false,
 }: Props) {
   const [showCreate, setShowCreate] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isDeleting, startDeleteTransition] = useTransition();
   const router = useRouter();
 
   function handleSuccess() {
     setShowCreate(false);
     startTransition(() => router.refresh());
+  }
+
+  function handleDelete() {
+    setDeleteError(null);
+    startDeleteTransition(async () => {
+      const result = await deleteLedgerAction(connectionId);
+      if (result.error) {
+        setDeleteError(result.error);
+      } else {
+        router.push('/dashboard');
+      }
+    });
   }
 
   const willGet = netBalance > 0;
@@ -147,11 +165,15 @@ export default function LedgerClient({
                 <p
                   style={{
                     fontSize: '0.75rem',
-                    color: 'var(--text-muted)',
+                    color: isDisconnected ? 'var(--danger)' : 'var(--text-muted)',
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {peer.isPersonal ? `${peer.username} · Offline Ledger` : `@${peer.username} · Shared Ledger`}
+                  {peer.isPersonal 
+                    ? `${peer.username} · Offline Ledger` 
+                    : isDisconnected 
+                    ? `@${peer.username} · Disconnected` 
+                    : `@${peer.username} · Shared Ledger`}
                 </p>
               </div>
             </div>
@@ -171,6 +193,14 @@ export default function LedgerClient({
                     animation: isPending ? 'spin 0.7s linear infinite' : 'none',
                   }}
                 />
+              </button>
+              <button
+                onClick={() => { setDeleteError(null); setShowDelete(true); }}
+                className="btn btn-ghost btn-icon"
+                title={peer.isPersonal ? 'Delete contact permanently' : 'Remove ledger'}
+                style={{ color: peer.isPersonal ? 'var(--danger)' : 'var(--text-muted)' }}
+              >
+                <Trash2 size={16} />
               </button>
               <button
                 onClick={() => setShowCreate(true)}
@@ -281,6 +311,30 @@ export default function LedgerClient({
           </motion.div>
         </div>
 
+        {/* Disconnected Alert Banner */}
+        {isDisconnected && (
+          <div style={{ padding: '0 1.5rem', maxWidth: '720px', margin: '0 auto 1.5rem', width: '100%' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '0.875rem 1rem',
+                borderRadius: '12px',
+                background: 'rgba(239,68,68,0.06)',
+                border: '1px solid rgba(239,68,68,0.15)',
+                color: 'var(--danger)',
+                fontSize: '0.875rem',
+              }}
+            >
+              <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+              <span>
+                <strong>Connection Disconnected.</strong> {peer.name} has removed this ledger. New entries you add will be accepted automatically.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Timeline */}
         <div
           className="card"
@@ -330,6 +384,178 @@ export default function LedgerClient({
             onClose={() => setShowCreate(false)}
             onSuccess={handleSuccess}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Delete confirmation sheet */}
+      <AnimatePresence>
+        {showDelete && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isDeleting && setShowDelete(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60 }}
+            />
+
+            {/* Sheet */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 32, stiffness: 340 }}
+              style={{
+                position: 'fixed',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: 'var(--bg-surface)',
+                borderTop: '1px solid var(--border-subtle)',
+                borderRadius: '20px 20px 0 0',
+                padding: '1.5rem 1.5rem calc(2rem + env(safe-area-inset-bottom, 0px))',
+                zIndex: 61,
+                maxWidth: '560px',
+                margin: '0 auto',
+              }}
+            >
+              {/* Drag handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                <div style={{ width: 40, height: 4, borderRadius: 9999, background: 'var(--border-default)' }} />
+              </div>
+
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: '12px',
+                      background: peer.isPersonal ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.1)',
+                      border: `1px solid ${peer.isPersonal ? 'rgba(239,68,68,0.25)' : 'rgba(245,158,11,0.25)'}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {peer.isPersonal
+                      ? <Trash2 size={20} color="var(--danger)" />
+                      : <AlertTriangle size={20} color="#f59e0b" />}
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '2px' }}>
+                      {peer.isPersonal ? 'Delete Contact?' : 'Remove Ledger?'}
+                    </h3>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                      {peer.name}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowDelete(false)}
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '8px', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', flexShrink: 0 }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* Warning message */}
+              <div
+                style={{
+                  padding: '1rem',
+                  borderRadius: '12px',
+                  background: peer.isPersonal ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)',
+                  border: `1px solid ${peer.isPersonal ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`,
+                  marginBottom: '1.5rem',
+                  fontSize: '0.875rem',
+                  lineHeight: 1.6,
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                {peer.isPersonal ? (
+                  <>
+                    <strong style={{ color: 'var(--danger)', display: 'block', marginBottom: '0.375rem' }}>⚠️ This is permanent and cannot be undone.</strong>
+                    All transactions with <strong>{peer.name}</strong> will be permanently deleted. You will lose all history.
+                  </>
+                ) : (
+                  <>
+                    <strong style={{ color: '#f59e0b', display: 'block', marginBottom: '0.375rem' }}>Your history is preserved.</strong>
+                    This ledger will be removed from <strong>your</strong> view only. <strong>{peer.name}</strong> will still see their full history.
+                    If you reconnect in the future, you can continue from where you left off.
+                  </>
+                )}
+              </div>
+
+              {/* Error */}
+              <AnimatePresence>
+                {deleteError && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    style={{ padding: '0.75rem 1rem', background: 'var(--danger-muted)', border: '1px solid var(--danger-border)', borderRadius: '8px', fontSize: '0.875rem', color: 'var(--danger)', marginBottom: '1rem' }}
+                  >
+                    {deleteError}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  onClick={() => setShowDelete(false)}
+                  disabled={isDeleting}
+                  className="btn btn-ghost"
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  Cancel
+                </button>
+                <motion.button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  whileHover={{ scale: isDeleting ? 1 : 1.02 }}
+                  whileTap={{ scale: isDeleting ? 1 : 0.98 }}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.25rem',
+                    borderRadius: '10px',
+                    border: 'none',
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                    fontSize: '0.9375rem',
+                    opacity: isDeleting ? 0.7 : 1,
+                    background: peer.isPersonal
+                      ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                      : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                    color: 'white',
+                    boxShadow: peer.isPersonal
+                      ? '0 4px 14px rgba(239,68,68,0.35)'
+                      : '0 4px 14px rgba(245,158,11,0.35)',
+                    transition: 'opacity 0.15s',
+                  }}
+                >
+                  {isDeleting ? (
+                    <>
+                      <span style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                      {peer.isPersonal ? 'Deleting...' : 'Removing...'}
+                    </>
+                  ) : (
+                    <>
+                      {peer.isPersonal ? <Trash2 size={15} /> : <AlertTriangle size={15} />}
+                      {peer.isPersonal ? 'Delete Permanently' : 'Remove from My View'}
+                    </>
+                  )}
+                </motion.button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 

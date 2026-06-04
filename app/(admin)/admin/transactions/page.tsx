@@ -3,6 +3,7 @@ import { adminGetAllTransactionsAction, adminForceTransactionAction } from '@/li
 import AdminTransactionsClient from '@/components/admin/AdminTransactionsClient';
 
 export const metadata: Metadata = { title: 'Transactions | Admin' };
+export const dynamic = 'force-dynamic';
 
 export default async function AdminTransactionsPage() {
   const { transactions, total } = await adminGetAllTransactionsAction();

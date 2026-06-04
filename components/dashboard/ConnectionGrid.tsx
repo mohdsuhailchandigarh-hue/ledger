@@ -79,7 +79,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances }:
         <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
           Connect with others to start shared ledger
         </p>
-        <Link href="/connections" className="btn btn-primary btn-sm">
+        <Link href="/connections" prefetch={false} className="btn btn-primary btn-sm">
           Add Connection
         </Link>
       </motion.div>
@@ -117,6 +117,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances }:
           >
             <Link
               href={`/ledger/${conn.id}`}
+              prefetch={false}
               className="card card-interactive"
               style={{
                 display: 'block',

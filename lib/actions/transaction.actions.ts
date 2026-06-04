@@ -44,7 +44,7 @@ export async function createTransactionAction(data: {
   // Verify user is part of this connection
   const { data: conn } = await supabaseAdmin
     .from('connections')
-    .select('user_a_id, user_b_id')
+    .select('user_a_id, user_b_id, deleted_by_a, deleted_by_b')
     .eq('id', data.connectionId)
     .single();
 
@@ -55,6 +55,7 @@ export async function createTransactionAction(data: {
   }
 
   const isPersonal = conn.user_b_id === null;
+  const isDisconnected = conn.deleted_by_a || conn.deleted_by_b;
   const counterpartyId = isPersonal 
     ? null 
     : (conn.user_a_id === currentUser.id ? conn.user_b_id : conn.user_a_id);
@@ -69,7 +70,7 @@ export async function createTransactionAction(data: {
       direction: data.direction,
       note: data.note,
       transaction_date: txnDate,
-      status: isPersonal ? 'accepted' : 'pending',
+      status: isPersonal || isDisconnected ? 'accepted' : 'pending',
     })
     .select()
     .single();
@@ -135,14 +136,27 @@ export async function getPendingActionsAction() {
   const currentUser = await getUserFromSession();
   if (!currentUser) return { error: 'Unauthorized', actions: [] };
 
-  const { data } = await supabaseAdmin
+  const { data: deletedConns } = await supabaseAdmin
+    .from('connections')
+    .select('id')
+    .or(`and(user_a_id.eq.${currentUser.id},deleted_by_a.eq.true),and(user_b_id.eq.${currentUser.id},deleted_by_b.eq.true)`);
+  
+  const deletedIds = deletedConns?.map(c => c.id) || [];
+
+  let query = supabaseAdmin
     .from('transactions')
     .select(`
       *,
       creator:users!transactions_creator_id_fkey(id, username, name, avatar_url),
       counterparty:users!transactions_counterparty_id_fkey(id, username, name, avatar_url)
     `)
-    .or(`and(counterparty_id.eq.${currentUser.id},status.eq.pending),and(creator_id.eq.${currentUser.id},status.eq.rejected)`)
+    .or(`and(counterparty_id.eq.${currentUser.id},status.eq.pending),and(creator_id.eq.${currentUser.id},status.eq.rejected)`);
+
+  if (deletedIds.length > 0) {
+    query = query.not('connection_id', 'in', `(${deletedIds.join(',')})`);
+  }
+
+  const { data } = await query
     .order('transaction_date', { ascending: false })
     .order('created_at', { ascending: false });
 
@@ -169,6 +183,15 @@ export async function handleRejectedTransactionAction(
 
   if (!txn) return { error: 'Transaction not found or not rejected' };
 
+  // Fetch connection to check if it is soft-deleted
+  const { data: conn } = await supabaseAdmin
+    .from('connections')
+    .select('deleted_by_a, deleted_by_b')
+    .eq('id', txn.connection_id)
+    .single();
+
+  const isDisconnected = conn ? (conn.deleted_by_a || conn.deleted_by_b) : false;
+
   if (action === 'cancel') {
     const { error } = await supabaseAdmin
       .from('transactions')
@@ -193,7 +216,7 @@ export async function handleRejectedTransactionAction(
         amount,
         direction: txn.direction,
         note,
-        status: 'pending',
+        status: isDisconnected ? 'accepted' : 'pending',
       });
       
     if (insertError) return { error: 'Failed to create new request' };
@@ -210,25 +233,43 @@ export async function getDashboardSummaryAction() {
   const currentUser = await getUserFromSession();
   if (!currentUser) return { error: 'Unauthorized' };
 
-  const { data: balances } = await supabaseAdmin
-    .from('connection_balances')
-    .select('*')
-    .eq('user_id', currentUser.id);
+  const [balancesResult, deletedConnsResult] = await Promise.all([
+    supabaseAdmin
+      .from('connection_balances')
+      .select('*')
+      .eq('user_id', currentUser.id),
+    supabaseAdmin
+      .from('connections')
+      .select('id')
+      .or(`and(user_a_id.eq.${currentUser.id},deleted_by_a.eq.true),and(user_b_id.eq.${currentUser.id},deleted_by_b.eq.true)`)
+  ]);
 
-  const totalGet = (balances ?? [])
+  const balances = balancesResult.data ?? [];
+  const deletedIds = new Set((deletedConnsResult.data ?? []).map(c => c.id));
+
+  // Filter balances to exclude soft-deleted connections
+  const filteredBalances = balances.filter(b => !deletedIds.has(b.connection_id));
+
+  const totalGet = filteredBalances
     .filter((b) => b.net_amount > 0)
     .reduce((sum, b) => sum + Number(b.net_amount), 0);
 
-  const totalGive = (balances ?? [])
+  const totalGive = filteredBalances
     .filter((b) => b.net_amount < 0)
     .reduce((sum, b) => sum + Math.abs(Number(b.net_amount)), 0);
 
   const netPosition = totalGet - totalGive;
 
-  const { data: pendingCount } = await supabaseAdmin
+  let pendingQuery = supabaseAdmin
     .from('transactions')
     .select('id', { count: 'exact', head: true })
     .or(`and(counterparty_id.eq.${currentUser.id},status.eq.pending),and(creator_id.eq.${currentUser.id},status.eq.rejected)`);
+
+  if (deletedIds.size > 0) {
+    pendingQuery = pendingQuery.not('connection_id', 'in', `(${Array.from(deletedIds).join(',')})`);
+  }
+
+  const { data: pendingCount } = await pendingQuery;
 
   return {
     totalGet,
@@ -280,22 +321,29 @@ export async function getMonthlyFinancialSummaryAction() {
   const monthStart = getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1));
   const monthEnd   = getLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
-  // Fetch all accepted transactions this month where user is creator or counterparty
-  // Filter by transaction_date so backdated entries appear in their correct month
-  const { data, error } = await supabaseAdmin
-    .from('transactions')
-    .select('amount, direction, creator_id, counterparty_id, status')
-    .eq('status', 'accepted')
-    .gte('transaction_date', monthStart)
-    .lte('transaction_date', monthEnd)
-    .or(`creator_id.eq.${currentUser.id},counterparty_id.eq.${currentUser.id}`);
+  const [txnsResult, deletedConnsResult] = await Promise.all([
+    supabaseAdmin
+      .from('transactions')
+      .select('amount, direction, creator_id, counterparty_id, status, connection_id')
+      .eq('status', 'accepted')
+      .gte('transaction_date', monthStart)
+      .lte('transaction_date', monthEnd)
+      .or(`creator_id.eq.${currentUser.id},counterparty_id.eq.${currentUser.id}`),
+    supabaseAdmin
+      .from('connections')
+      .select('id')
+      .or(`and(user_a_id.eq.${currentUser.id},deleted_by_a.eq.true),and(user_b_id.eq.${currentUser.id},deleted_by_b.eq.true)`)
+  ]);
 
-  if (error) return { error: error.message, monthlyGet: 0, monthlyGive: 0 };
+  if (txnsResult.error) return { error: txnsResult.error.message, monthlyGet: 0, monthlyGive: 0 };
+
+  const deletedIds = new Set((deletedConnsResult.data ?? []).map(c => c.id));
+  const filteredTxns = (txnsResult.data ?? []).filter(t => !deletedIds.has(t.connection_id));
 
   let monthlyGet  = 0;
   let monthlyGive = 0;
 
-  for (const txn of data ?? []) {
+  for (const txn of filteredTxns) {
     const amt = Number(txn.amount);
     if (txn.creator_id === currentUser.id) {
       // I created this transaction

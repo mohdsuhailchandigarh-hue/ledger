@@ -115,11 +115,19 @@ export async function sendConnectionRequestAction(toUserId: string) {
   // Check if already connected (shared or upgraded)
   const { data: existingConn } = await supabaseAdmin
     .from('connections')
-    .select('id')
+    .select('id, user_a_id, user_b_id, deleted_by_a, deleted_by_b')
     .or(`and(user_a_id.eq.${currentUser.id},user_b_id.eq.${toUserId}),and(user_a_id.eq.${toUserId},user_b_id.eq.${currentUser.id})`)
     .single();
 
-  if (existingConn) return { error: 'Already connected' };
+  if (existingConn) {
+    const isUserA = existingConn.user_a_id === currentUser.id;
+    const currentUserDeleted = isUserA ? existingConn.deleted_by_a : existingConn.deleted_by_b;
+    
+    // Only block if the current user has NOT soft-deleted their side
+    if (!currentUserDeleted) {
+      return { error: 'Already connected' };
+    }
+  }
 
   // Check existing request
   const { data: existingReq } = await supabaseAdmin
@@ -130,7 +138,11 @@ export async function sendConnectionRequestAction(toUserId: string) {
 
   if (existingReq) {
     if (existingReq.status === 'pending') return { error: 'Request already sent' };
-    if (existingReq.status === 'accepted') return { error: 'Already connected' };
+    // If request exists but is accepted or rejected, delete it so we can send a new one
+    await supabaseAdmin
+      .from('connection_requests')
+      .delete()
+      .eq('id', existingReq.id);
   }
 
   const { error } = await supabaseAdmin
@@ -212,9 +224,25 @@ export async function respondToConnectionRequestAction(
         ? request.to_user_id
         : request.from_user_id;
 
-      await supabaseAdmin
+      // Check if a connection already exists between these two users
+      const { data: existingConn } = await supabaseAdmin
         .from('connections')
-        .insert({ user_a_id: userA, user_b_id: userB });
+        .select('id')
+        .eq('user_a_id', userA)
+        .eq('user_b_id', userB)
+        .single();
+
+      if (existingConn) {
+        // Revive the connection — clear both deletion flags
+        await supabaseAdmin
+          .from('connections')
+          .update({ deleted_by_a: false, deleted_by_b: false })
+          .eq('id', existingConn.id);
+      } else {
+        await supabaseAdmin
+          .from('connections')
+          .insert({ user_a_id: userA, user_b_id: userB });
+      }
     }
   }
 
@@ -238,6 +266,10 @@ export async function getMyConnectionsAction() {
         created_at,
         contact_name,
         contact_phone,
+        user_a_id,
+        user_b_id,
+        deleted_by_a,
+        deleted_by_b,
         user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
         user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
       `)
@@ -250,6 +282,10 @@ export async function getMyConnectionsAction() {
         created_at,
         contact_name,
         contact_phone,
+        user_a_id,
+        user_b_id,
+        deleted_by_a,
+        deleted_by_b,
         user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
         user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
       `)
@@ -257,22 +293,30 @@ export async function getMyConnectionsAction() {
       .eq('user_a_id', currentUser.id)
   ]);
 
-  if (platformResult.error && platformResult.error.code === '42703') {
-    // Missing contact_name/contact_phone columns (database not migrated yet)
+  if (platformResult.error && (platformResult.error.code === '42703' || platformResult.error.code === 'PGRST204')) {
+    // Missing columns (database not migrated yet) — fall back to basic select
     const fallbackResult = await supabaseAdmin
       .from('connections')
       .select(`
         id,
         created_at,
+        user_a_id,
+        user_b_id,
         user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
         user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
       `)
       .not('user_b_id', 'is', null)
       .or(`user_a_id.eq.${currentUser.id},user_b_id.eq.${currentUser.id}`);
-      
+
     platformConns = fallbackResult.data ?? [];
   } else {
-    platformConns = platformResult.data ?? [];
+    // Filter out rows where the current user has soft-deleted their side
+    const rawPlatform = (platformResult.data ?? []) as any[];
+    platformConns = rawPlatform.filter((c) => {
+      if (c.user_a_id === currentUser.id) return !c.deleted_by_a;
+      if (c.user_b_id === currentUser.id) return !c.deleted_by_b;
+      return true;
+    });
     personalConns = personalResult.data ?? [];
   }
 
@@ -361,6 +405,51 @@ export async function upgradePersonalContactsForPhone(phone: string, userId: str
     }
   }
 
+  return { success: true };
+}
+
+// ─── Delete ledger ─────────────────────────────────────────────
+export async function deleteLedgerAction(connectionId: string): Promise<{ error?: string; success?: boolean }> {
+  const currentUser = await getUserFromSession();
+  if (!currentUser) return { error: 'Unauthorized' };
+
+  // Fetch connection with deletion flags
+  const { data: conn, error: fetchError } = await supabaseAdmin
+    .from('connections')
+    .select('id, user_a_id, user_b_id, deleted_by_a, deleted_by_b')
+    .eq('id', connectionId)
+    .single();
+
+  if (fetchError || !conn) return { error: 'Connection not found' };
+
+  const isUserA = conn.user_a_id === currentUser.id;
+  const isUserB = conn.user_b_id === currentUser.id;
+  const isPersonal = conn.user_b_id === null;
+
+  if (!isUserA && !isUserB) return { error: 'Unauthorized' };
+
+  if (isPersonal) {
+    // Personal contact — hard delete (transactions cascade via FK)
+    const { error } = await supabaseAdmin
+      .from('connections')
+      .delete()
+      .eq('id', connectionId)
+      .eq('user_a_id', currentUser.id);
+
+    if (error) return { error: 'Failed to delete contact' };
+  } else {
+    // Platform connection — soft delete only the caller's side
+    const updateField = isUserA ? { deleted_by_a: true } : { deleted_by_b: true };
+    const { error } = await supabaseAdmin
+      .from('connections')
+      .update(updateField)
+      .eq('id', connectionId);
+
+    if (error) return { error: 'Failed to remove ledger' };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/connections');
   return { success: true };
 }
 

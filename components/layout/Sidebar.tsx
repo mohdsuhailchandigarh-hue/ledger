@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { logoutAction } from '@/lib/actions/auth.actions';
 import {
@@ -15,6 +15,7 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
+  KeyRound,
 } from 'lucide-react';
 
 const nav = [
@@ -31,6 +32,7 @@ type Props = {
 export default function Sidebar({ pendingCount = 0, user }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard';
@@ -70,6 +72,7 @@ export default function Sidebar({ pendingCount = 0, user }: Props) {
         >
           <Link
             href="/dashboard"
+            prefetch={false}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -156,6 +159,7 @@ export default function Sidebar({ pendingCount = 0, user }: Props) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 title={collapsed ? item.label : undefined}
                 style={{
                   display: 'flex',
@@ -342,21 +346,32 @@ export default function Sidebar({ pendingCount = 0, user }: Props) {
 
           <AnimatePresence>
             {!collapsed && (
-              <motion.form
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                action={logoutAction}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
               >
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => router.push('/login?tab=change')}
                   className="btn btn-ghost btn-icon"
-                  title="Sign out"
+                  title="Change password"
                   style={{ color: 'var(--text-muted)' }}
                 >
-                  <LogOut size={15} />
+                  <KeyRound size={15} />
                 </button>
-              </motion.form>
+                <form action={logoutAction}>
+                  <button
+                    type="submit"
+                    className="btn btn-ghost btn-icon"
+                    title="Sign out"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    <LogOut size={15} />
+                  </button>
+                </form>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>

@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { getPendingActionsAction } from '@/lib/actions/transaction.actions';
 import NotificationsClient from '@/components/notifications/NotificationsClient';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = { title: 'Approvals | Shared Ledger' };
 
 export default async function NotificationsPage() {
