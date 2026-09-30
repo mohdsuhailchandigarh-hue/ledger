@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="#0F4C75"/>
+
+  <!--
+    Three-node "shared ledger" graph
+    Nodes:
+      A (top-center):   256, 172  — filled white  (the shared ledger hub)
+      B (bottom-left):  158, 340  — stroke white   (user/party A)
+      C (bottom-right): 354, 340  — filled white   (user/party B)
+
+    Lines connect every pair: A-B, A-C, B-C
+  -->
+
+  <!-- Connecting lines (drawn first, under nodes) -->
+  <line x1="256" y1="172" x2="158" y2="340" stroke="white" stroke-width="14" stroke-linecap="round" opacity="0.7"/>
+  <line x1="256" y1="172" x2="354" y2="340" stroke="white" stroke-width="14" stroke-linecap="round" opacity="0.7"/>
+  <line x1="158" y1="340" x2="354" y2="340" stroke="white" stroke-width="14" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Node A — top center — Solid filled (the ledger / source of truth) -->
+  <circle cx="256" cy="172" r="40" fill="white"/>
+
+  <!-- Node B — bottom left — Stroke only (party giving) -->
+  <circle cx="158" cy="340" r="40" fill="#0F4C75" stroke="white" stroke-width="14"/>
+
+  <!-- Node C — bottom right — Solid filled (party receiving) -->
+  <circle cx="354" cy="340" r="40" fill="white"/>
+</svg>
