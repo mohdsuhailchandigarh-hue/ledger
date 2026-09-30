@@ -203,7 +203,7 @@ export default function UserProfileDrawer({
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                paddingTop: '3.25rem',
+                paddingTop: '3.625rem',
                 paddingBottom: '1.25rem',
                 paddingLeft: '1.5rem',
                 paddingRight: '1.5rem',
