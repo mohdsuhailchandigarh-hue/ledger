@@ -5,10 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Clock, X, Check, Edit2, RotateCcw, BellOff, Calendar } from 'lucide-react';
 import { respondToTransactionAction, handleRejectedTransactionAction } from '@/lib/actions/transaction.actions';
 import { useRouter } from 'next/navigation';
-<<<<<<< HEAD
 import Link from 'next/link';
-=======
->>>>>>> 90955cf5404937548f44cc14d69b3374d37d4fde
 
 type Transaction = {
   id: string;
@@ -149,7 +146,6 @@ export default function NotificationsClient({ approvals, currentUserId }: Props)
         )}
       </AnimatePresence>
 
-<<<<<<< HEAD
       {/* Top Navigation Back Link */}
       <div style={{ marginBottom: '1.25rem' }}>
         <Link
@@ -172,8 +168,6 @@ export default function NotificationsClient({ approvals, currentUserId }: Props)
         </Link>
       </div>
 
-=======
->>>>>>> 90955cf5404937548f44cc14d69b3374d37d4fde
       {/* Header */}
       <div style={{ marginBottom: '2.25rem' }}>
         <h1

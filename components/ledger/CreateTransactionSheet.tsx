@@ -13,10 +13,7 @@ import {
   CalendarDays,
 } from 'lucide-react';
 import AmountCalculator from './AmountCalculator';
-<<<<<<< HEAD
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
-=======
->>>>>>> 90955cf5404937548f44cc14d69b3374d37d4fde
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,10 +34,7 @@ export default function CreateTransactionSheet({
   onClose,
   onSuccess,
 }: Props) {
-<<<<<<< HEAD
   useBodyScrollLock(true);
-=======
->>>>>>> 90955cf5404937548f44cc14d69b3374d37d4fde
   const [step, setStep] = useState<Step>('amount');
   const [amount, setAmount] = useState(0);
   const [direction, setDirection] = useState<'get' | 'give'>('get');
