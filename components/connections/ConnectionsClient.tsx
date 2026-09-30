@@ -262,6 +262,7 @@ export default function ConnectionsClient({
 
   return (
     <div style={{ padding: 'clamp(1.25rem, 3vw, 2rem)', maxWidth: '800px', margin: '0 auto' }}>
+<<<<<<< HEAD
       {/* Top Navigation Back Link */}
       <div style={{ marginBottom: '1.25rem' }}>
         <Link
@@ -284,6 +285,8 @@ export default function ConnectionsClient({
         </Link>
       </div>
 
+=======
+>>>>>>> 90955cf5404937548f44cc14d69b3374d37d4fde
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
         <h1

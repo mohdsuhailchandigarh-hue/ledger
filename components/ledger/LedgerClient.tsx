@@ -566,7 +566,11 @@ export default function LedgerClient({
         onClick={() => setShowCreate(true)}
         style={{
           position: 'fixed',
+<<<<<<< HEAD
           bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))',
+=======
+          bottom: 'calc(var(--bottomnav-height) + env(safe-area-inset-bottom, 0px) + 1rem)',
+>>>>>>> 90955cf5404937548f44cc14d69b3374d37d4fde
           right: '1.25rem',
           width: 52,
           height: 52,
