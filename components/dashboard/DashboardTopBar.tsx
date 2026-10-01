@@ -44,10 +44,6 @@ export default function DashboardTopBar({
   const [currentAvatar, setCurrentAvatar] = useState<string | null>(avatarUrl ?? null);
   const [imgError, setImgError] = useState(false);
   const [photoPalette, setPhotoPalette] = useState<ExtractedPalette | null>(null);
-  const [markKey, setMarkKey] = useState(0);
-  const [isMarkActive, setIsMarkActive] = useState(true);
-  const lastTriggerTime = useRef(Date.now());
-  const hasScrolledDown = useRef(false);
 
   useEffect(() => {
     setCurrentAvatar(avatarUrl ?? null);
@@ -70,7 +66,6 @@ export default function DashboardTopBar({
       isMounted = false;
     };
   }, [currentAvatar, imgError]);
-
   const initials = getInitials(userName);
 
   const isPositive = netPosition > 0;
@@ -81,102 +76,10 @@ export default function DashboardTopBar({
   const isMonthLoss = monthlyNet < 0;
   const monthColor = isMonthProfit ? '#10b981' : isMonthLoss ? '#f43f5e' : 'var(--text-muted)';
 
-  const triggerColorMark = useCallback(() => {
-    const now = Date.now();
-    // Allow re-trigger if at least 1s elapsed
-    if (now - lastTriggerTime.current > 1000) {
-      lastTriggerTime.current = now;
-      setIsMarkActive(true);
-      setMarkKey((k) => k + 1);
-    }
-  }, []);
-
-  // Detect scroll to top: when user scrolls down (>30px) and returns to the top (<=12px), trigger color mark!
-  useEffect(() => {
-    const handleScroll = () => {
-      const y = window.scrollY;
-      if (y > 35) {
-        hasScrolledDown.current = true;
-      } else if (y <= 12 && hasScrolledDown.current) {
-        hasScrolledDown.current = false;
-        triggerColorMark();
-      }
-    };
-
-    // Detect pull or wheel up while at top
-    const handleWheel = (e: WheelEvent) => {
-      if (window.scrollY === 0 && e.deltaY < -10) {
-        triggerColorMark();
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('wheel', handleWheel, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('wheel', handleWheel);
-    };
-  }, [triggerColorMark]);
-
   return (
     <>
-      {/* Dynamic 15-second Ambient Color Mark in Background at Top */}
-      {isMarkActive && (
-        <div
-          key={markKey}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '100vw',
-            height: '240px',
-            pointerEvents: 'none',
-            zIndex: 35, // in background behind sticky topbar (zIndex 40)
-            animation: 'topColorMarkFade 15s cubic-bezier(0.25, 0.1, 0.25, 1) forwards',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Luminous atmospheric radial wash */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 'clamp(360px, 92vw, 840px)',
-              height: '180px',
-              borderRadius: '50%',
-              background: isPositive
-                ? 'radial-gradient(ellipse 100% 90% at 50% 0%, rgba(16, 185, 129, 0.42) 0%, rgba(16, 185, 129, 0.16) 45%, rgba(16, 185, 129, 0.03) 75%, transparent 100%)'
-                : isNegative
-                ? 'radial-gradient(ellipse 100% 90% at 50% 0%, rgba(244, 63, 94, 0.42) 0%, rgba(244, 63, 94, 0.16) 45%, rgba(244, 63, 94, 0.03) 75%, transparent 100%)'
-                : 'radial-gradient(ellipse 100% 90% at 50% 0%, rgba(99, 102, 241, 0.38) 0%, rgba(99, 102, 241, 0.15) 45%, rgba(99, 102, 241, 0.02) 75%, transparent 100%)',
-              filter: 'blur(30px)',
-            }}
-          />
-
-          {/* Glowing laser highlight along the top edge */}
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 'min(500px, 85vw)',
-              height: '2px',
-              background: `linear-gradient(90deg, transparent 0%, ${accentColor} 50%, transparent 100%)`,
-              opacity: 0.85,
-              filter: 'blur(1.5px)',
-            }}
-          />
-        </div>
-      )}
-
       <header
         className="dashboard-permanent-topbar"
-        onClick={triggerColorMark}
-        title="Tap to highlight status color"
         style={{
           position: 'sticky',
           top: 0,

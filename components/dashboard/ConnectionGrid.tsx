@@ -106,10 +106,10 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
 
   const handleFocus = () => {
     setIsFocused(true);
-    scrollToSearch();
-    // Re-adjust as mobile virtual keyboards animate open and resize viewport
-    setTimeout(scrollToSearch, 120);
-    setTimeout(scrollToSearch, 300);
+    // Smooth scroll once shortly after focus so iOS Safari touch gesture completes
+    setTimeout(() => {
+      scrollToSearch();
+    }, 80);
   };
 
   // Dismiss keyboard when Enter is pressed
@@ -121,11 +121,11 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
     }
   };
 
-  // Automatically dismiss keyboard when user taps anywhere outside the search bar, or scrolls
+  // Automatically dismiss keyboard when user taps anywhere outside the search bar
   useEffect(() => {
     if (!isFocused) return;
 
-    const handlePointerDownOutside = (e: PointerEvent | MouseEvent | TouchEvent) => {
+    const handlePointerDownOutside = (e: PointerEvent) => {
       const target = e.target as Node | null;
       if (searchContainerRef.current && !searchContainerRef.current.contains(target)) {
         inputRef.current?.blur();
@@ -133,26 +133,14 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
       }
     };
 
-    document.addEventListener('pointerdown', handlePointerDownOutside, { passive: true });
-
-    let isScrollListenerReady = false;
-    const onScroll = () => {
-      if (isScrollListenerReady) {
-        inputRef.current?.blur();
-        setIsFocused(false);
-      }
-    };
-
-    // Wait 450ms for initial smooth auto-scroll to complete before treating scroll as user dismissal
-    const scrollTimer = setTimeout(() => {
-      isScrollListenerReady = true;
-      window.addEventListener('scroll', onScroll, { passive: true });
-    }, 450);
+    // Attach after a short delay so the initial tap that focused the search bar doesn't immediately dismiss it
+    const timer = setTimeout(() => {
+      document.addEventListener('pointerdown', handlePointerDownOutside, { passive: true });
+    }, 120);
 
     return () => {
+      clearTimeout(timer);
       document.removeEventListener('pointerdown', handlePointerDownOutside);
-      window.removeEventListener('scroll', onScroll);
-      clearTimeout(scrollTimer);
     };
   }, [isFocused]);
 
@@ -222,13 +210,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
   }
 
   return (
-    <div
-      style={{
-        width: '100%',
-        minHeight: isFocused ? 'calc(100vh - 120px)' : 'auto',
-        transition: 'min-height 0.3s ease',
-      }}
-    >
+    <div style={{ width: '100%' }}>
       {/* Search Filter for Accounts */}
       {connections.length > 0 && (
         <div
@@ -258,6 +240,9 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
             enterKeyHint="search"
             placeholder="Search accounts or notes..."
             value={query}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={handleFocus}
             onBlur={() => {
@@ -270,15 +255,16 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
             onKeyDown={handleKeyDown}
             style={{
               width: '100%',
-              padding: '0.55rem 2.2rem 0.55rem 2.35rem',
+              padding: '0.625rem 2.2rem 0.625rem 2.35rem',
               borderRadius: '9999px',
               background: isFocused ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.05)',
               border: isFocused ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
               boxShadow: isFocused ? '0 0 16px rgba(16, 185, 129, 0.15)' : 'none',
               color: 'var(--text-primary)',
-              fontSize: '0.8125rem',
+              fontSize: '16px',
               outline: 'none',
-              transition: 'all 0.2s ease',
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
+              WebkitAppearance: 'none',
             }}
           />
           {query && (

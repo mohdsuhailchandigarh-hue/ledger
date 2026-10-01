@@ -9,7 +9,6 @@ import { getDashboardSummaryAction, getMonthlyFinancialSummaryAction } from '@/l
 import { getPendingActionsAction } from '@/lib/actions/transaction.actions';
 import MonthlyPnLCard from '@/components/dashboard/MonthlyPnLCard';
 import AddConnectionCTA from '@/components/dashboard/AddConnectionCTA';
-import InteractiveTouchAura from '@/components/dashboard/InteractiveTouchAura';
 
 export const metadata: Metadata = { title: 'Dashboard | Shared Ledger' };
 export const dynamic = 'force-dynamic';
@@ -134,34 +133,6 @@ export default async function DashboardPage() {
         netPosition={netAmount}
         monthlyNet={monthlyNet}
       />
-
-      {/* Dynamic Interactive Touch/Click/Swipe/Scroll 3s Ambient Color Tint Canvas */}
-      <InteractiveTouchAura netPosition={netAmount} />
-
-      {/* Subtle Ambient Atmosphere across Full Page & Accounts Listing (Continuous soft tint) */}
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          width: '100vw',
-          height: '100vh',
-          pointerEvents: 'none',
-          zIndex: 0,
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: isPositive
-              ? 'radial-gradient(ellipse 100% 80% at 50% 65%, rgba(16, 185, 129, 0.11) 0%, rgba(16, 185, 129, 0.035) 45%, transparent 75%)'
-              : isNegative
-              ? 'radial-gradient(ellipse 100% 80% at 50% 65%, rgba(244, 63, 94, 0.11) 0%, rgba(244, 63, 94, 0.035) 45%, transparent 75%)'
-              : 'radial-gradient(ellipse 100% 80% at 50% 65%, rgba(99, 102, 241, 0.09) 0%, rgba(99, 102, 241, 0.025) 45%, transparent 75%)',
-          }}
-        />
-      </div>
 
       <div style={{ padding: '0 clamp(0.875rem, 2.5vw, 2rem) 4rem', maxWidth: '1400px', width: '100%', boxSizing: 'border-box', margin: '0 auto' }}>
         {/* Unified Hero: Ambient Net Position + Get/Give Breakdown */}
