@@ -27,6 +27,7 @@ export const metadata: Metadata = {
     ],
     shortcut: '/icon.svg',
   },
+  manifest: '/manifest.webmanifest',
 };
 
 export const viewport: Viewport = {
@@ -55,6 +56,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Ledger" />
         <meta name="theme-color" content="#060608" />
+        <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -64,26 +66,6 @@ export default function RootLayout({
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
           rel="stylesheet"
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if (typeof window !== 'undefined' && 'standalone' in window.navigator && window.navigator.standalone) {
-                document.addEventListener('click', function(e) {
-                  var node = e.target;
-                  while (node && node.nodeName !== 'A') {
-                    node = node.parentNode;
-                  }
-                  if (node && node.nodeName === 'A' && node.getAttribute('href') && !node.getAttribute('target')) {
-                    var href = node.getAttribute('href');
-                    if (href.indexOf('http') !== 0 || href.indexOf(window.location.host) !== -1) {
-                      e.preventDefault();
-                    }
-                  }
-                }, false);
-              }
-            `,
-          }}
         />
       </head>
       <body>{children}</body>

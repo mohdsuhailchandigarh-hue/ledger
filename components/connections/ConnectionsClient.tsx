@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition, useMemo, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   sendConnectionRequestAction,
@@ -9,6 +10,9 @@ import {
   createPersonalContactAction,
   updatePersonalContactAction
 } from '@/lib/actions/connection.actions';
+import { getLedgerDetailsAction } from '@/lib/actions/transaction.actions';
+import LedgerSkeleton from '@/components/ledger/LedgerSkeleton';
+import LedgerClient from '@/components/ledger/LedgerClient';
 import { Search, UserPlus, Check, X, Clock, Users, Link2, Phone, AlertCircle, Edit2, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -88,6 +92,118 @@ export default function ConnectionsClient({
 
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  // Native In-App Ledger Full-Screen SPA view state (No Safari URL bar, No bottom action buttons)
+  const [activeLedger, setActiveLedger] = useState<{
+    connectionId: string;
+    peer: any;
+    netBalance: number;
+    transactions: any[] | null;
+    isDisconnected: boolean;
+    hasMore?: boolean;
+  } | null>(null);
+
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // When ledger view is active, hide page overflow and lock body scroll
+  useEffect(() => {
+    if (activeLedger) {
+      document.body.classList.add('ledger-view-open');
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.classList.remove('ledger-view-open');
+        document.body.style.overflow = prevOverflow;
+      };
+    } else {
+      document.body.classList.remove('ledger-view-open');
+    }
+  }, [activeLedger]);
+
+  const openLedger = useCallback(async (connId: string, peerData: any, currentBalance: number = 0) => {
+    // 1. Immediately show the in-app view with instant skeleton (0ms!)
+    setActiveLedger({
+      connectionId: connId,
+      peer: peerData,
+      netBalance: currentBalance,
+      transactions: null,
+      isDisconnected: false,
+    });
+
+    // 2. Update browser history state without full document reload so Safari never pops up its browser chrome
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ ledgerId: connId }, '', `/ledger/${connId}`);
+    }
+
+    // 3. Fetch full transactions via Server Action
+    try {
+      const res = await getLedgerDetailsAction(connId);
+      if (res && !('error' in res)) {
+        setActiveLedger({
+          connectionId: res.connectionId,
+          peer: res.peer,
+          netBalance: res.netBalance,
+          transactions: res.transactions,
+          isDisconnected: res.isDisconnected,
+          hasMore: res.hasMore,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load ledger details:', e);
+    }
+  }, []);
+
+  const closeLedger = useCallback(() => {
+    setActiveLedger(null);
+    if (typeof window !== 'undefined') {
+      if (window.history.state?.ledgerId) {
+        window.history.back();
+      } else {
+        window.history.replaceState(null, '', '/connections');
+      }
+    }
+    router.refresh();
+  }, [router]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      // If user swipes back or taps browser back button, close active ledger if open
+      setActiveLedger((current) => {
+        if (current) {
+          router.refresh();
+          return null;
+        }
+        return null;
+      });
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [router]);
+
+  const reloadActiveLedger = useCallback(async () => {
+    if (!activeLedger) return;
+    try {
+      const res = await getLedgerDetailsAction(activeLedger.connectionId);
+      if (res && !('error' in res)) {
+        setActiveLedger({
+          connectionId: res.connectionId,
+          peer: res.peer,
+          netBalance: res.netBalance,
+          transactions: res.transactions,
+          isDisconnected: res.isDisconnected,
+          hasMore: res.hasMore,
+        });
+      }
+      router.refresh();
+    } catch (e) {
+      console.error('Failed to reload ledger:', e);
+    }
+  }, [activeLedger, router]);
 
   // ── Derived data ──────────────────────────────────────────
   const personalContacts = connections.filter(c => !c.user_b);
@@ -597,49 +713,67 @@ export default function ConnectionsClient({
                             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--text-muted)', border: '1.5px solid var(--border-strong)', display: 'inline-block' }} />
                             <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Personal Contacts</span>
                           </div>
-                          {matchingPersonalContacts.map((conn, i) => (
-                            <Link
-                              key={conn.id}
-                              href={`/ledger/${conn.id}`}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                padding: '0.75rem 1rem',
-                                borderBottom: i < matchingPersonalContacts.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                                gap: '1rem',
-                                textDecoration: 'none',
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <div
-                                  style={{
-                                    width: 34,
-                                    height: 34,
-                                    borderRadius: '10px',
-                                    background: 'var(--bg-overlay)',
-                                    border: '1px solid var(--border-default)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '0.8125rem',
-                                    fontWeight: 700,
-                                    color: 'var(--text-secondary)',
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  {(conn.contact_name ?? '?').charAt(0).toUpperCase()}
+                          {matchingPersonalContacts.map((conn, i) => {
+                            const peer = {
+                              id: 'offline',
+                              name: conn.contact_name || 'Contact',
+                              username: conn.contact_phone || 'Offline',
+                              isPersonal: true,
+                            };
+                            return (
+                              <div
+                                key={conn.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => openLedger(conn.id, peer)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    openLedger(conn.id, peer);
+                                  }
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '0.75rem 1rem',
+                                  borderBottom: i < matchingPersonalContacts.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                                  gap: '1rem',
+                                  cursor: 'pointer',
+                                  WebkitTapHighlightColor: 'transparent',
+                                }}
+                                className="hover:bg-white/5 active:bg-white/10"
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                  <div
+                                    style={{
+                                      width: 34,
+                                      height: 34,
+                                      borderRadius: '10px',
+                                      background: 'var(--bg-overlay)',
+                                      border: '1px solid var(--border-default)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '0.8125rem',
+                                      fontWeight: 700,
+                                      color: 'var(--text-secondary)',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {(conn.contact_name ?? '?').charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{conn.contact_name}</p>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{conn.contact_phone}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{conn.contact_name}</p>
-                                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{conn.contact_phone}</p>
-                                </div>
+                                <span style={{ fontSize: '0.6875rem', fontWeight: 600, padding: '2px 7px', background: 'var(--bg-overlay)', border: '1px solid var(--border-default)', borderRadius: '6px', color: 'var(--text-muted)' }}>
+                                  Open Ledger →
+                                </span>
                               </div>
-                              <span style={{ fontSize: '0.6875rem', fontWeight: 600, padding: '2px 7px', background: 'var(--bg-overlay)', border: '1px solid var(--border-default)', borderRadius: '6px', color: 'var(--text-muted)' }}>
-                                Open Ledger →
-                              </span>
-                            </Link>
-                          ))}
+                            );
+                          })}
                         </>
                       )}
 
@@ -705,13 +839,21 @@ export default function ConnectionsClient({
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         {contactFormState.existingConnectionId ? (
-                          <Link
-                            href={`/ledger/${contactFormState.existingConnectionId}`}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openLedger(contactFormState.existingConnectionId!, {
+                                id: contactFormState.user.id,
+                                name: contactFormState.user.name,
+                                username: 'user',
+                                isPersonal: false,
+                              })
+                            }
                             className="btn btn-success"
-                            style={{ justifyContent: 'center', gap: '0.5rem' }}
+                            style={{ justifyContent: 'center', gap: '0.5rem', cursor: 'pointer' }}
                           >
                             <ExternalLink size={14} /> View Existing Connection
-                          </Link>
+                          </button>
                         ) : (
                           <button
                             onClick={() => handleSendRequestToFound(contactFormState.user.id)}
@@ -755,13 +897,21 @@ export default function ConnectionsClient({
                         </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <Link
-                          href={`/ledger/${contactFormState.connectionId}`}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openLedger(contactFormState.connectionId, {
+                              id: 'offline',
+                              name: contactFormState.currentName,
+                              username: contactPhone || 'Offline',
+                              isPersonal: true,
+                            })
+                          }
                           className="btn btn-primary"
-                          style={{ justifyContent: 'center', gap: '0.5rem', textDecoration: 'none' }}
+                          style={{ justifyContent: 'center', gap: '0.5rem', cursor: 'pointer' }}
                         >
                           <ExternalLink size={14} /> Open Ledger
-                        </Link>
+                        </button>
                         <button
                           onClick={() => handleEditContact(contactFormState.connectionId, contactFormState.currentName)}
                           className="btn"
@@ -942,6 +1092,10 @@ export default function ConnectionsClient({
                 : (conn.user_a?.id === currentUserId ? conn.user_b?.avatar_url : conn.user_a?.avatar_url);
               const [g1, g2] = GRADIENT_PAIRS[i % GRADIENT_PAIRS.length];
 
+              const peer = isPersonal
+                ? { id: 'offline', name: peerName, username: peerSub, isPersonal: true }
+                : (conn.user_a?.id === currentUserId ? conn.user_b : conn.user_a);
+
               return (
                 <motion.div
                   key={conn.id}
@@ -949,18 +1103,27 @@ export default function ConnectionsClient({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                 >
-                  <Link
-                    href={`/ledger/${conn.id}`}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openLedger(conn.id, peer)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openLedger(conn.id, peer);
+                      }
+                    }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '0.75rem 0.25rem',
-                      textDecoration: 'none',
                       gap: '1rem',
                       borderBottom: i === connections.length - 1 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
                       transition: 'background 0.15s ease',
                       borderRadius: '8px',
+                      cursor: 'pointer',
+                      WebkitTapHighlightColor: 'transparent',
                     }}
                     className="hover:bg-white/5 active:bg-white/10"
                   >
@@ -1049,7 +1212,7 @@ export default function ConnectionsClient({
                     </div>
 
                     <span className="badge badge-accepted" style={{ flexShrink: 0 }}>View →</span>
-                  </Link>
+                  </div>
                 </motion.div>
               );
             })}
@@ -1060,6 +1223,51 @@ export default function ConnectionsClient({
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
+
+      {/* Native In-App Full-Screen SPA Ledger View (No Safari URL bar, No bottom action buttons, Mounted to body with zIndex 99999) */}
+      {mounted && typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {activeLedger && (
+            <motion.div
+              initial={{ opacity: 0, x: '8%' }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: '8%' }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 99999,
+                background: 'var(--bg-base)',
+                overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              {activeLedger.transactions === null ? (
+                <LedgerSkeleton
+                  peerName={activeLedger.peer.name}
+                  peerAvatar={activeLedger.peer.avatar_url}
+                  peerUsername={activeLedger.peer.username}
+                  isPersonal={activeLedger.peer.isPersonal}
+                  onBack={closeLedger}
+                />
+              ) : (
+                <LedgerClient
+                  connectionId={activeLedger.connectionId}
+                  peer={activeLedger.peer}
+                  currentUserId={currentUserId}
+                  transactions={activeLedger.transactions}
+                  netBalance={activeLedger.netBalance}
+                  isDisconnected={activeLedger.isDisconnected}
+                  initialHasMore={activeLedger.hasMore}
+                  onBack={closeLedger}
+                  onRefresh={reloadActiveLedger}
+                />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }

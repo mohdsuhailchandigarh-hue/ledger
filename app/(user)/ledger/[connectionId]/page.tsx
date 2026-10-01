@@ -109,14 +109,25 @@ export default async function LedgerPage({
   const netBalance = Number((balanceResult.data as any)?.net_amount ?? 0);
 
   return (
-    <LedgerClient
-      connectionId={connectionId}
-      peer={peer}
-      currentUserId={user.id}
-      transactions={transactions as any[]}
-      netBalance={netBalance}
-      isDisconnected={isDisconnected}
-      initialHasMore={transactions.length === 50}
-    />
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        background: 'var(--bg-base)',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
+      <LedgerClient
+        connectionId={connectionId}
+        peer={peer}
+        currentUserId={user.id}
+        transactions={transactions as any[]}
+        netBalance={netBalance}
+        isDisconnected={isDisconnected}
+        initialHasMore={transactions.length === 50}
+      />
+    </div>
   );
 }
