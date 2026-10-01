@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -26,6 +26,8 @@ import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 
 type Props = {
   currentUserId: string;
+  avatarUrl?: string | null;
+  netPosition?: number;
 };
 
 type SearchedUser = {
@@ -35,9 +37,14 @@ type SearchedUser = {
   avatar_url?: string | null;
 };
 
-export default function AddConnectionCTA({ currentUserId }: Props) {
+export default function AddConnectionCTA({ currentUserId, netPosition = 0 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'personal' | 'platform'>('personal');
+
+  const isPositive = netPosition > 0;
+  const isNegative = netPosition < 0;
+  // Status color matching background aura: emerald green when positive, rose red when negative, periwinkle when zero
+  const statusColor = isPositive ? '#10b981' : isNegative ? '#f43f5e' : '#818cf8';
 
   // Lock background scroll when modal is open
   useBodyScrollLock(isOpen);
@@ -163,11 +170,11 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
 
   return (
     <>
-      {/* ─── Floating Action Button (FAB) — Perfectly Centered & Aligned ─── */}
+      {/* ─── Floating Action Button (FAB) — Perfectly Concentric Black Glass + Edge Gaussian Color Blur ─── */}
       <motion.button
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.92 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.94 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
         onClick={handleOpen}
         className="add-connection-fab"
         aria-label="Add New Connection"
@@ -183,14 +190,30 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
-          color: '#ffffff',
-          border: '1px solid rgba(255, 255, 255, 0.25)',
-          boxShadow: '0 10px 25px -2px rgba(99, 102, 241, 0.55), 0 4px 14px rgba(236, 72, 153, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.4)',
+          padding: 0,
+          outline: 'none',
           cursor: 'pointer',
+          // Pitch-black center, with color coming from edge to center in a faded gaussian radial gradient
+          background: `radial-gradient(circle at 50% 50%, #080c14 36%, rgba(8, 12, 20, 0.88) 60%, ${statusColor}22 82%, ${statusColor}55 100%)`,
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          // Concentric circular rim reflecting background green/red
+          border: `1.5px solid ${statusColor}`,
+          // Zero-offset symmetric concentric glow: inward gaussian blur + edge outer reflection
+          boxShadow: `0 0 16px -1px ${statusColor}66, inset 0 0 12px 2px ${statusColor}50, inset 0 0 24px 4px ${statusColor}25, 0 4px 16px rgba(0, 0, 0, 0.7)`,
+          overflow: 'hidden',
         }}
       >
-        <Plus size={26} strokeWidth={2.6} />
+        <Plus
+          size={24}
+          strokeWidth={2.6}
+          color={statusColor}
+          style={{
+            display: 'block',
+            filter: `drop-shadow(0 0 6px ${statusColor}aa)`,
+            transition: 'color 0.25s ease, filter 0.25s ease',
+          }}
+        />
       </motion.button>
 
       {/* ─── Modal / Bottom Sheet ─────────────────────────────── */}
@@ -561,9 +584,19 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                                     color: 'white',
                                     fontWeight: 700,
                                     fontSize: '0.8125rem',
+                                    overflow: 'hidden',
                                   }}
                                 >
-                                  {u.name.slice(0, 2).toUpperCase()}
+                                  {u.avatar_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={u.avatar_url}
+                                      alt={u.name}
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                    />
+                                  ) : (
+                                    u.name.slice(0, 2).toUpperCase()
+                                  )}
                                 </div>
                                 <div>
                                   <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{u.name}</div>

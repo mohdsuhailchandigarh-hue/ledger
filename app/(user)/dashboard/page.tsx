@@ -6,7 +6,6 @@ import DashboardHero from '@/components/dashboard/DashboardHero';
 import DashboardTopBar from '@/components/dashboard/DashboardTopBar';
 import ConnectionGrid from '@/components/dashboard/ConnectionGrid';
 import { getDashboardSummaryAction, getMonthlyFinancialSummaryAction } from '@/lib/actions/transaction.actions';
-import DashboardPendingActions from '@/components/dashboard/DashboardPendingActions';
 import { getPendingActionsAction } from '@/lib/actions/transaction.actions';
 import MonthlyPnLCard from '@/components/dashboard/MonthlyPnLCard';
 import AddConnectionCTA from '@/components/dashboard/AddConnectionCTA';
@@ -19,7 +18,7 @@ export default async function DashboardPage() {
   const user = await getUserFromSession();
   if (!user) redirect('/login');
 
-  const [summaryResult, platformConnsResult, personalConnsResult, balancesResult, pendingActionsResult, monthlyResult] = await Promise.all([
+  const [summaryResult, platformConnsResult, personalConnsResult, balancesResult, pendingActionsResult, monthlyResult, recentTxnsResult] = await Promise.all([
     getDashboardSummaryAction(),
     supabaseAdmin
       .from('connections')
@@ -47,6 +46,11 @@ export default async function DashboardPage() {
       .eq('user_id', user.id),
     getPendingActionsAction(),
     getMonthlyFinancialSummaryAction(),
+    supabaseAdmin
+      .from('transactions')
+      .select('id, connection_id, amount, direction, note, status, created_at, transaction_date, creator_id')
+      .order('created_at', { ascending: false })
+      .limit(300),
   ]);
 
   const summary = summaryResult;
@@ -76,9 +80,32 @@ export default async function DashboardPage() {
     personalConns = (personalConnsResult.data ?? []) as any[];
   }
 
-  const connections = [...platformConns, ...personalConns].sort((a, b) =>
-    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  // Build latest transaction preview map per connection
+  const latestTxnMap: Record<string, {
+    id: string;
+    note?: string | null;
+    amount: number;
+    direction: 'give' | 'get';
+    creator_id: string;
+    created_at: string;
+    transaction_date?: string | null;
+    status: 'pending' | 'accepted' | 'rejected' | 'canceled';
+  }> = {};
+  for (const txn of ((recentTxnsResult?.data as any[]) ?? [])) {
+    if (!latestTxnMap[txn.connection_id]) {
+      latestTxnMap[txn.connection_id] = txn;
+    } else if (txn.status === 'pending' && latestTxnMap[txn.connection_id].status !== 'pending') {
+      // Prioritize pending request status if there is an unapproved request on this connection
+      latestTxnMap[txn.connection_id].status = 'pending';
+    }
+  }
+
+  // Sort like WhatsApp: most recent message/activity bubbles to the top
+  const connections = [...platformConns, ...personalConns].sort((a, b) => {
+    const timeA = latestTxnMap[a.id]?.created_at || a.created_at;
+    const timeB = latestTxnMap[b.id]?.created_at || b.created_at;
+    return new Date(timeB).getTime() - new Date(timeA).getTime();
+  });
   const balanceMap: Record<string, number> = {};
   for (const b of (balancesResult.data ?? [])) {
     balanceMap[b.connection_id] = Number(b.net_amount);
@@ -101,6 +128,7 @@ export default async function DashboardPage() {
       <DashboardTopBar
         userName={user.name}
         userUsername={user.username}
+        avatarUrl={user.avatar_url}
         greeting={getGreeting()}
         pendingActions={pendingActions.length}
         netPosition={netAmount}
@@ -110,15 +138,13 @@ export default async function DashboardPage() {
       {/* Dynamic Interactive Touch/Click/Swipe/Scroll 3s Ambient Color Tint Canvas */}
       <InteractiveTouchAura netPosition={netAmount} />
 
-      {/* Subtle Ambient Atmosphere in Bottom Section (Zero cutting edges, continuous soft tint) */}
+      {/* Subtle Ambient Atmosphere across Full Page & Accounts Listing (Continuous soft tint) */}
       <div
         style={{
           position: 'fixed',
-          bottom: 0,
-          left: '50%',
-          transform: 'translateX(-50%)',
+          inset: 0,
           width: '100vw',
-          height: '45vh',
+          height: '100vh',
           pointerEvents: 'none',
           zIndex: 0,
           overflow: 'hidden',
@@ -129,10 +155,10 @@ export default async function DashboardPage() {
             position: 'absolute',
             inset: 0,
             background: isPositive
-              ? 'radial-gradient(ellipse 100% 70% at 50% 100%, rgba(16, 185, 129, 0.11) 0%, rgba(16, 185, 129, 0.035) 45%, transparent 75%)'
+              ? 'radial-gradient(ellipse 100% 80% at 50% 65%, rgba(16, 185, 129, 0.11) 0%, rgba(16, 185, 129, 0.035) 45%, transparent 75%)'
               : isNegative
-              ? 'radial-gradient(ellipse 100% 70% at 50% 100%, rgba(244, 63, 94, 0.11) 0%, rgba(244, 63, 94, 0.035) 45%, transparent 75%)'
-              : 'radial-gradient(ellipse 100% 70% at 50% 100%, rgba(99, 102, 241, 0.09) 0%, rgba(99, 102, 241, 0.025) 45%, transparent 75%)',
+              ? 'radial-gradient(ellipse 100% 80% at 50% 65%, rgba(244, 63, 94, 0.11) 0%, rgba(244, 63, 94, 0.035) 45%, transparent 75%)'
+              : 'radial-gradient(ellipse 100% 80% at 50% 65%, rgba(99, 102, 241, 0.09) 0%, rgba(99, 102, 241, 0.025) 45%, transparent 75%)',
           }}
         />
       </div>
@@ -157,8 +183,6 @@ export default async function DashboardPage() {
 
       {/* Main accounts content */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', zIndex: 10 }}>
-        <DashboardPendingActions actions={pendingActions} currentUserId={user.id} />
-        
         <div
           style={{
             display: 'flex',
@@ -210,11 +234,16 @@ export default async function DashboardPage() {
           connections={connections}
           currentUserId={user.id}
           balances={balanceMap}
+          latestTransactions={latestTxnMap}
         />
       </div>
 
       {/* Floating Add Connection CTA */}
-      <AddConnectionCTA currentUserId={user.id} />
+      <AddConnectionCTA
+        currentUserId={user.id}
+        avatarUrl={user.avatar_url}
+        netPosition={netAmount}
+      />
     </div>
     </>
   );

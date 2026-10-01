@@ -399,9 +399,19 @@ export default function NotificationsClient({ approvals, currentUserId }: Props)
                                   color: isRejectedStatus ? 'var(--danger)' : 'white',
                                   flexShrink: 0,
                                   letterSpacing: '-0.02em',
+                                  overflow: 'hidden',
                                 }}
                               >
-                                {peer.name.charAt(0).toUpperCase()}
+                                {(peer as any).avatar_url && !isRejectedStatus ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={(peer as any).avatar_url}
+                                    alt={peer.name}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                  />
+                                ) : (
+                                  peer.name.charAt(0).toUpperCase()
+                                )}
                               </div>
                               <div>
                                 <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: isRejectedStatus ? 'var(--danger)' : 'var(--text-primary)', marginBottom: '1px', letterSpacing: '-0.01em' }}>

@@ -8,6 +8,7 @@ export type SessionUser = {
   id: string;
   username: string;
   name: string;
+  avatar_url?: string | null;
   is_admin: boolean;
   is_active: boolean;
 };
@@ -39,9 +40,11 @@ function signToken(payload: string): string {
 }
 
 function verifyToken(token: string): string | null {
-  const parts = token.split('.');
-  if (parts.length !== 2) return null;
-  const [payload, signature] = parts;
+  const lastDot = token.lastIndexOf('.');
+  if (lastDot === -1) return null;
+  const payload = token.slice(0, lastDot);
+  const signature = token.slice(lastDot + 1);
+  if (!payload || !signature) return null;
   const expectedSignature = crypto
     .createHmac('sha256', SESSION_SECRET)
     .update(payload)
@@ -54,7 +57,7 @@ function verifyToken(token: string): string | null {
 export async function createUserSession(userId: string): Promise<string> {
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, username, name, is_admin, is_active')
+    .select('id, username, name, avatar_url, is_admin, is_active')
     .eq('id', userId)
     .single();
 
@@ -108,6 +111,20 @@ export const getUserFromSession = cache(async (): Promise<SessionUser | null> =>
 
   if (!user || !user.is_active) return null;
 
+  // Fallback if avatar_url is missing in cached session cookie payload
+  if (user.avatar_url === undefined) {
+    try {
+      const { data: dbUser } = await supabaseAdmin
+        .from('users')
+        .select('avatar_url')
+        .eq('id', user.id)
+        .single();
+      user.avatar_url = dbUser?.avatar_url ?? null;
+    } catch {
+      user.avatar_url = null;
+    }
+  }
+
   // Hybrid session check: verify active session in DB on full navigations/page refreshes
   // (Skip DB hit during Server Actions to keep interactions fast)
   const reqHeaders = await headers();
@@ -121,6 +138,7 @@ export const getUserFromSession = cache(async (): Promise<SessionUser | null> =>
       .single();
 
     if (error || !dbSession) {
+      console.log('[DEBUG getUserFromSession] DB session lookup failed! error:', error?.message, 'token:', token?.slice(0, 50));
       redirect('/api/auth/clear-session');
     }
   }

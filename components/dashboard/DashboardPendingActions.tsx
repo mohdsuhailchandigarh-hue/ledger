@@ -298,7 +298,7 @@ export default function DashboardPendingActions({
                               style={{
                                 width: 38,
                                 height: 38,
-                                borderRadius: '10px',
+                                borderRadius: '50%',
                                 background: isRejectedStatus ? 'var(--danger-muted)' : avatarGradient(peer.name),
                                 border: isRejectedStatus ? '1px solid var(--danger-border)' : '1px solid rgba(255,255,255,0.08)',
                                 display: 'flex',
@@ -309,9 +309,19 @@ export default function DashboardPendingActions({
                                 color: isRejectedStatus ? 'var(--danger)' : 'white',
                                 flexShrink: 0,
                                 letterSpacing: '-0.02em',
+                                overflow: 'hidden',
                               }}
                             >
-                              {peer.name.charAt(0).toUpperCase()}
+                              {(peer as any).avatar_url && !isRejectedStatus ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={(peer as any).avatar_url}
+                                  alt={peer.name}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: '50%' }}
+                                />
+                              ) : (
+                                peer.name.charAt(0).toUpperCase()
+                              )}
                             </div>
                             <div>
                               <p style={{ fontSize: '0.875rem', fontWeight: 700, color: isRejectedStatus ? 'var(--danger)' : 'var(--text-primary)', marginBottom: '1px', letterSpacing: '-0.01em' }}>

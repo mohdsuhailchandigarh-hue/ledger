@@ -26,7 +26,7 @@ const nav = [
 
 type Props = {
   pendingCount?: number;
-  user: { name: string; username: string };
+  user: { name: string; username: string; avatar_url?: string | null };
 };
 
 export default function Sidebar({ pendingCount = 0, user }: Props) {
@@ -161,6 +161,12 @@ export default function Sidebar({ pendingCount = 0, user }: Props) {
                 href={item.href}
                 prefetch={false}
                 title={collapsed ? item.label : undefined}
+                onClick={(e) => {
+                  if (item.href === '/notifications') {
+                    e.preventDefault();
+                    window.dispatchEvent(new CustomEvent('open-pending-approvals'));
+                  }
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -306,9 +312,19 @@ export default function Sidebar({ pendingCount = 0, user }: Props) {
                 fontWeight: 700,
                 color: 'white',
                 flexShrink: 0,
+                overflow: 'hidden',
               }}
             >
-              {user.name.charAt(0).toUpperCase()}
+              {user.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.avatar_url}
+                  alt={user.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                user.name.charAt(0).toUpperCase()
+              )}
             </div>
             <AnimatePresence>
               {!collapsed && (

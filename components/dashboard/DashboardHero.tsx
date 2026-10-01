@@ -59,46 +59,129 @@ export default function DashboardHero({
           overflow: 'hidden',
         }}
       >
-        {/* Ambient radial wash centered directly at the Net Amount, softly fading toward the edges */}
-        <div
+        {/* Layer 1: Ambient radial wash with deep living breathing wave */}
+        <motion.div
+          animate={{
+            scale: [1, 1.07, 0.96, 1.05, 1],
+            opacity: [0.85, 1, 0.88, 1, 0.85],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
           style={{
             position: 'absolute',
             inset: 0,
             background: isPositive
-              ? 'radial-gradient(ellipse 90% 65% at 50% 32%, rgba(16, 185, 129, 0.28) 0%, rgba(16, 185, 129, 0.12) 35%, rgba(16, 185, 129, 0.02) 65%, transparent 100%)'
+              ? 'radial-gradient(ellipse 90% 65% at 50% 32%, rgba(16, 185, 129, 0.32) 0%, rgba(16, 185, 129, 0.14) 35%, rgba(16, 185, 129, 0.02) 65%, transparent 100%)'
               : isNegative
-              ? 'radial-gradient(ellipse 90% 65% at 50% 32%, rgba(244, 63, 94, 0.28) 0%, rgba(244, 63, 94, 0.12) 35%, rgba(244, 63, 94, 0.02) 65%, transparent 100%)'
-              : 'radial-gradient(ellipse 90% 65% at 50% 32%, rgba(99, 102, 241, 0.26) 0%, rgba(99, 102, 241, 0.1) 35%, rgba(99, 102, 241, 0.02) 65%, transparent 100%)',
+              ? 'radial-gradient(ellipse 90% 65% at 50% 32%, rgba(244, 63, 94, 0.32) 0%, rgba(244, 63, 94, 0.14) 35%, rgba(244, 63, 94, 0.02) 65%, transparent 100%)'
+              : 'radial-gradient(ellipse 90% 65% at 50% 32%, rgba(99, 102, 241, 0.28) 0%, rgba(99, 102, 241, 0.12) 35%, rgba(99, 102, 241, 0.02) 65%, transparent 100%)',
           }}
         />
 
-        {/* Intensely focused core luminous bloom right behind the net amount */}
-        <div
+        {/* Layer 2: Wide Ethereal Swirling Aurora Wave (360° Cosmic Rotation like Profile Picture) */}
+        <motion.div
+          animate={{
+            rotate: [0, 360],
+            scale: [1, 1.16, 0.94, 1.14, 1],
+            opacity: [0.75, 0.96, 0.8, 1, 0.75],
+          }}
+          transition={{
+            rotate: {
+              duration: 22,
+              repeat: Infinity,
+              ease: 'linear',
+            },
+            scale: {
+              duration: 7,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            },
+            opacity: {
+              duration: 5.5,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            },
+          }}
           style={{
             position: 'absolute',
             top: '32%',
             left: '50%',
-            transform: 'translate(-50%, -50%)',
+            x: '-50%',
+            y: '-50%',
+            width: 'clamp(320px, 88vw, 560px)',
+            height: 'clamp(240px, 60vw, 360px)',
+            borderRadius: '50%',
+            background: `radial-gradient(ellipse at center, ${accentColor}38 0%, ${accentColor}14 45%, transparent 75%)`,
+            filter: 'blur(55px)',
+            transformOrigin: 'center center',
+          }}
+        />
+
+        {/* Layer 3: Living Core Luminous Bloom with Oscillating Chromatic Movement (Counter-Wave) */}
+        <motion.div
+          animate={{
+            rotate: [0, -28, 0, 28, 0],
+            scale: [0.95, 1.18, 0.98, 1.14, 0.95],
+            opacity: [0.8, 1, 0.85, 1, 0.8],
+          }}
+          transition={{
+            rotate: {
+              duration: 9.5,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            },
+            scale: {
+              duration: 5,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            },
+            opacity: {
+              duration: 4.2,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            },
+          }}
+          style={{
+            position: 'absolute',
+            top: '32%',
+            left: '50%',
+            x: '-50%',
+            y: '-50%',
             width: 'clamp(260px, 72vw, 420px)',
-            height: '170px',
+            height: 'clamp(170px, 45vw, 260px)',
             borderRadius: '50%',
-            background: `radial-gradient(circle, ${accentColor}55 0%, ${accentColor}22 45%, transparent 75%)`,
-            filter: 'blur(45px)',
+            background: `radial-gradient(circle at center, ${accentColor}65 0%, ${accentColor}28 45%, transparent 75%)`,
+            filter: 'blur(38px)',
+            transformOrigin: 'center center',
           }}
         />
 
-        {/* Wider atmospheric aura around the net amount */}
-        <div
+        {/* Layer 4: Deep Focused Heartbeat Luminous Center (Directly Behind the Net Numbers) */}
+        <motion.div
+          animate={{
+            scale: [0.92, 1.14, 0.96, 1.1, 0.92],
+            opacity: [0.7, 0.95, 0.75, 0.92, 0.7],
+          }}
+          transition={{
+            duration: 4.5,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
           style={{
             position: 'absolute',
             top: '32%',
             left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 'clamp(320px, 88vw, 540px)',
-            height: '240px',
+            x: '-50%',
+            y: '-50%',
+            width: 'clamp(180px, 50vw, 290px)',
+            height: 'clamp(120px, 32vw, 190px)',
             borderRadius: '50%',
-            background: `radial-gradient(ellipse, ${accentColor}25 0%, ${accentColor}08 55%, transparent 80%)`,
-            filter: 'blur(65px)',
+            background: `radial-gradient(circle at center, ${accentColor}75 0%, ${accentColor}30 50%, transparent 80%)`,
+            filter: 'blur(26px)',
+            transformOrigin: 'center center',
           }}
         />
       </div>

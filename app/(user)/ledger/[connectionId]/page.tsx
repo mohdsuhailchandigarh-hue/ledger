@@ -21,6 +21,7 @@ export default async function LedgerPage({
 }) {
   const { connectionId } = await params;
   const user = await getUserFromSession();
+  console.log('[DEBUG LedgerPage] connectionId:', connectionId, 'user:', user?.username, user?.id);
   if (!user) redirect('/login');
 
   // Query connection details, transactions list, and net balance in parallel to eliminate sequential database latency

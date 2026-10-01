@@ -6,9 +6,11 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'fallback-secret-for-develo
 
 // Stateless Web Crypto HMAC-SHA256 verification (100% compatible with Edge & Node environments)
 async function verifyHmacToken(token: string, secret: string): Promise<boolean> {
-  const parts = token.split('.');
-  if (parts.length !== 2) return false;
-  const [payload, signature] = parts;
+  const lastDot = token.lastIndexOf('.');
+  if (lastDot === -1) return false;
+  const payload = token.slice(0, lastDot);
+  const signature = token.slice(lastDot + 1);
+  if (!payload || !signature) return false;
 
   try {
     const encoder = new TextEncoder();

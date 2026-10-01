@@ -3,10 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import UserProfileDrawer from '@/components/dashboard/UserProfileDrawer';
+import { extractPaletteFromUrl, type ExtractedPalette } from '@/lib/utils/colorExtractor';
 
 type Props = {
   userName: string;
   userUsername: string;
+  avatarUrl?: string | null;
   greeting?: string;
   pendingActions?: number;
   netPosition?: number;
@@ -21,7 +23,8 @@ const formatINR = (v: number) =>
 
 function getInitials(name: string) {
   return (name || 'User')
-    .split(' ')
+    .trim()
+    .split(/\s+/)
     .map((n) => n[0])
     .join('')
     .toUpperCase()
@@ -31,16 +34,42 @@ function getInitials(name: string) {
 export default function DashboardTopBar({
   userName,
   userUsername,
+  avatarUrl,
   greeting,
   pendingActions = 0,
   netPosition = 0,
   monthlyNet = 0,
 }: Props) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [currentAvatar, setCurrentAvatar] = useState<string | null>(avatarUrl ?? null);
+  const [imgError, setImgError] = useState(false);
+  const [photoPalette, setPhotoPalette] = useState<ExtractedPalette | null>(null);
   const [markKey, setMarkKey] = useState(0);
   const [isMarkActive, setIsMarkActive] = useState(true);
   const lastTriggerTime = useRef(Date.now());
   const hasScrolledDown = useRef(false);
+
+  useEffect(() => {
+    setCurrentAvatar(avatarUrl ?? null);
+    setImgError(false);
+  }, [avatarUrl]);
+
+  // Dynamically extract photo color reflection
+  useEffect(() => {
+    if (!currentAvatar || imgError) {
+      setPhotoPalette(null);
+      return;
+    }
+    let isMounted = true;
+    extractPaletteFromUrl(currentAvatar).then((palette) => {
+      if (isMounted) {
+        setPhotoPalette(palette);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [currentAvatar, imgError]);
 
   const initials = getInitials(userName);
 
@@ -254,58 +283,188 @@ export default function DashboardTopBar({
             </div>
           </div>
 
-          {/* Right: Windows 11 Frosted Profile Icon CTA */}
-          <motion.button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsProfileOpen(true);
-            }}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-            aria-label="Account and features menu"
-            title="Profile & Menu"
+          {/* Right: Windows 11 Frosted Profile Icon CTA with Dynamic Photo Reflection Glow */}
+          <div
             style={{
               position: 'relative',
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 100%)',
-              border: '1.5px solid rgba(255, 255, 255, 0.22)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '0.875rem',
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.3)',
               flexShrink: 0,
-              cursor: 'pointer',
-              outline: 'none',
-              transition: 'border-color 0.2s ease',
             }}
           >
-            {initials}
-
-            {/* Notification badge if approvals pending */}
-            {pendingActions > 0 && (
-              <span
+            {/* Dynamic Photo Ambient Reflection Glow - Layer 1 (Wide Atmospheric Bloom with Gentle Breathing) */}
+            {currentAvatar && !imgError && (
+              <motion.div
+                animate={{
+                  scale: [1, 1.09, 1],
+                  opacity: [0.72, 0.95, 0.72],
+                }}
+                transition={{
+                  duration: 3.6,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
                 style={{
                   position: 'absolute',
-                  top: -2,
-                  right: -2,
-                  width: 10,
-                  height: 10,
+                  inset: -9,
                   borderRadius: '50%',
-                  background: '#f59e0b',
-                  border: '2px solid var(--bg-base)',
-                  boxShadow: '0 0 8px #f59e0b',
+                  overflow: 'hidden',
+                  filter: 'blur(14px) saturate(220%) brightness(1.2)',
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentAvatar}
+                  alt=""
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    transform: 'scale(1.4)',
+                  }}
+                />
+              </motion.div>
+            )}
+
+            {/* Dynamic Photo Ambient Reflection Glow - Layer 2 (Intense Chromatic Rim Aura) */}
+            {currentAvatar && !imgError && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: -3,
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  filter: 'blur(7px) saturate(260%) brightness(1.3)',
+                  opacity: 0.92,
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentAvatar}
+                  alt=""
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    transform: 'scale(1.2)',
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Dynamic Ambient Light Wash using extracted tone */}
+            {currentAvatar && !imgError && photoPalette && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: -14,
+                  borderRadius: '50%',
+                  background: `radial-gradient(circle, ${photoPalette.accentGlow} 0%, ${photoPalette.subtleTint} 55%, transparent 80%)`,
+                  filter: 'blur(12px)',
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                  opacity: 0.85,
+                  transition: 'background 0.4s ease',
                 }}
               />
             )}
-          </motion.button>
+
+            {/* Fallback glow for initials */}
+            {(!currentAvatar || imgError) && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: -4,
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(99, 102, 241, 0.15) 60%, transparent 85%)',
+                  filter: 'blur(8px)',
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                }}
+              />
+            )}
+
+            <motion.button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsProfileOpen(true);
+              }}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              aria-label="Account and features menu"
+              title="Profile & Menu"
+              style={{
+                position: 'relative',
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                background: currentAvatar && !imgError
+                  ? '#090d16'
+                  : 'linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 100%)',
+                border: currentAvatar && !imgError
+                  ? (photoPalette?.borderTint ? `1.5px solid ${photoPalette.borderTint}` : '1.5px solid rgba(255, 255, 255, 0.5)')
+                  : '1.5px solid rgba(255, 255, 255, 0.22)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                boxShadow: currentAvatar && !imgError
+                  ? `0 4px 16px rgba(0, 0, 0, 0.5), 0 0 16px ${photoPalette?.subtleTint || 'rgba(255, 255, 255, 0.2)'}, inset 0 1px 1px rgba(255, 255, 255, 0.4)`
+                  : '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.3)',
+                flexShrink: 0,
+                cursor: 'pointer',
+                outline: 'none',
+                transition: 'border-color 0.25s ease, box-shadow 0.25s ease',
+                overflow: 'hidden',
+                zIndex: 2,
+              }}
+            >
+              {currentAvatar && !imgError ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={currentAvatar}
+                  alt={userName}
+                  onError={() => setImgError(true)}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
+                />
+              ) : (
+                initials
+              )}
+
+              {/* Notification badge if approvals pending */}
+              {pendingActions > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: '#f59e0b',
+                    border: '2px solid var(--bg-base)',
+                    boxShadow: '0 0 8px #f59e0b',
+                    zIndex: 3,
+                  }}
+                />
+              )}
+            </motion.button>
+          </div>
         </div>
       </header>
 
@@ -315,6 +474,11 @@ export default function DashboardTopBar({
         onClose={() => setIsProfileOpen(false)}
         userName={userName}
         userUsername={userUsername}
+        avatarUrl={currentAvatar}
+        onAvatarUpdate={(url) => {
+          setCurrentAvatar(url);
+          setImgError(false);
+        }}
         pendingActions={pendingActions}
         netPosition={netPosition}
       />

@@ -199,9 +199,19 @@ export default function ApprovalOverlay({ transaction, currentUserId, onClose }:
                         fontSize: '0.9375rem',
                         fontWeight: 800,
                         color: 'white',
+                        overflow: 'hidden',
                       }}
                     >
-                      {transaction.creator.name.charAt(0).toUpperCase()}
+                      {(transaction.creator as any).avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={(transaction.creator as any).avatar_url}
+                          alt={transaction.creator.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                      ) : (
+                        transaction.creator.name.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div>
                       <div

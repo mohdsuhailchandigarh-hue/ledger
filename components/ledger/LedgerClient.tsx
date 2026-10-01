@@ -23,7 +23,7 @@ type Transaction = {
 
 type Props = {
   connectionId: string;
-  peer: { id: string; name: string; username: string; isPersonal?: boolean };
+  peer: { id: string; name: string; username: string; avatar_url?: string | null; isPersonal?: boolean };
   currentUserId: string;
   transactions: Transaction[];
   netBalance: number;
@@ -126,7 +126,7 @@ export default function LedgerClient({
                 style={{
                   width: 36,
                   height: 36,
-                  borderRadius: '10px',
+                  borderRadius: '50%',
                   background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                   display: 'flex',
                   alignItems: 'center',
@@ -135,9 +135,19 @@ export default function LedgerClient({
                   fontWeight: 700,
                   color: 'white',
                   flexShrink: 0,
+                  overflow: 'hidden',
                 }}
               >
-                {peer.name.charAt(0).toUpperCase()}
+                {peer.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={peer.avatar_url}
+                    alt={peer.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: '50%' }}
+                  />
+                ) : (
+                  peer.name.charAt(0).toUpperCase()
+                )}
               </div>
 
               <div style={{ minWidth: 0 }}>

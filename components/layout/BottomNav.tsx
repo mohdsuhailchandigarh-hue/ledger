@@ -319,6 +319,8 @@ export default function BottomNav({ pendingCount = 0 }: Props) {
     const targetTab = TABS[targetIdx];
     if (targetTab.isAction) {
       setMoreOpen(true);
+    } else if (targetTab.id === 'notifications') {
+      window.dispatchEvent(new CustomEvent('open-pending-approvals'));
     } else {
       router.push(targetTab.href);
     }

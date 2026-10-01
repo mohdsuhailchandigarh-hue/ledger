@@ -7,8 +7,8 @@ type Props = {
 };
 
 interface TouchAura {
-  x: number;
-  y: number;
+  pageX: number;
+  pageY: number;
   startTime: number;
   maxRadius: number;
   colorRgb: string;
@@ -18,7 +18,7 @@ export default function InteractiveTouchAura({ netPosition }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const aurasRef = useRef<TouchAura[]>([]);
   const isRunningRef = useRef(false);
-  const lastTouchRef = useRef<{ x: number; y: number; time: number }>({ x: 0, y: 0, time: 0 });
+  const lastTouchRef = useRef<{ pageX: number; pageY: number; time: number }>({ pageX: 0, pageY: 0, time: 0 });
 
   const isPositive = netPosition > 0;
   const isNegative = netPosition < 0;
@@ -43,6 +43,9 @@ export default function InteractiveTouchAura({ netPosition }: Props) {
       canvas.width = window.innerWidth * dpr;
       canvas.height = window.innerHeight * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (aurasRef.current.length > 0) {
+        startAnimation();
+      }
     };
 
     handleResize();
@@ -65,6 +68,8 @@ export default function InteractiveTouchAura({ netPosition }: Props) {
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
       const DURATION = 15000; // 15 seconds duration
+      const scrollX = window.scrollX || window.pageXOffset || 0;
+      const scrollY = window.scrollY || window.pageYOffset || 0;
 
       for (let i = auras.length - 1; i >= 0; i--) {
         const aura = auras[i];
@@ -85,12 +90,26 @@ export default function InteractiveTouchAura({ netPosition }: Props) {
         // Compact, slim fingertip touch size (radius ~36-42px, diameter ~75-85px)
         const currentRadius = 14 + aura.maxRadius * Math.sin(expandFactor * Math.PI * 0.5) * 0.7;
 
+        // Calculate screen viewport position relative to page scroll
+        const screenX = aura.pageX - scrollX;
+        const screenY = aura.pageY - scrollY;
+
+        // Skip rendering if scrolled completely out of viewport bounds
+        if (
+          screenX + currentRadius < -60 ||
+          screenX - currentRadius > window.innerWidth + 60 ||
+          screenY + currentRadius < -60 ||
+          screenY - currentRadius > window.innerHeight + 60
+        ) {
+          continue;
+        }
+
         const grad = ctx.createRadialGradient(
-          aura.x,
-          aura.y,
+          screenX,
+          screenY,
           0,
-          aura.x,
-          aura.y,
+          screenX,
+          screenY,
           currentRadius
         );
         grad.addColorStop(0, `rgba(${aura.colorRgb}, ${alpha})`);
@@ -100,38 +119,43 @@ export default function InteractiveTouchAura({ netPosition }: Props) {
 
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(aura.x, aura.y, currentRadius, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, currentRadius, 0, Math.PI * 2);
         ctx.fill();
       }
 
       requestAnimationFrame(render);
     };
 
-    // Strict single-coat logic:
-    // If user taps in the same area (< 42px), refresh the existing aura's timer instead of adding a second coat!
-    const addOrUpdateAura = (x: number, y: number) => {
+    // Strict single-coat logic with fixed document coordinates:
+    // If user taps in the same area on the page (< 42px), refresh the existing aura's timer instead of adding a second coat!
+    const addOrUpdateAura = (clientX: number, clientY: number) => {
+      const scrollX = window.scrollX || window.pageXOffset || 0;
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      const pageX = clientX + scrollX;
+      const pageY = clientY + scrollY;
       const now = performance.now();
+
       const existingIndex = aurasRef.current.findIndex(
-        (a) => Math.hypot(a.x - x, a.y - y) < 42
+        (a) => Math.hypot(a.pageX - pageX, a.pageY - pageY) < 42
       );
 
       if (existingIndex !== -1) {
         // Refresh timer and position for single coat — NEVER stacks or gets darker!
-        aurasRef.current[existingIndex].x = x;
-        aurasRef.current[existingIndex].y = y;
+        aurasRef.current[existingIndex].pageX = pageX;
+        aurasRef.current[existingIndex].pageY = pageY;
         aurasRef.current[existingIndex].startTime = now;
         startAnimation();
         return;
       }
 
-      // Allow up to 20 active compact auras across the screen for 15s persistence
+      // Allow up to 20 active compact auras across the page for 15s persistence
       if (aurasRef.current.length >= 20) {
         aurasRef.current.shift();
       }
 
       aurasRef.current.push({
-        x,
-        y,
+        pageX,
+        pageY,
         startTime: now,
         maxRadius: Math.random() * 8 + 32, // 32px - 40px expansion
         colorRgb,
@@ -141,48 +165,59 @@ export default function InteractiveTouchAura({ netPosition }: Props) {
 
     // 1. Pointer Down (single tap or click)
     const onPointerDown = (e: PointerEvent) => {
-      lastTouchRef.current = { x: e.clientX, y: e.clientY, time: performance.now() };
+      // Do not create residual background auras on text inputs, drawers, or the floating action button
+      if ((e.target as HTMLElement)?.closest('input, textarea, select, .add-connection-fab, .profile-drawer-sheet')) {
+        return;
+      }
+      const scrollX = window.scrollX || window.pageXOffset || 0;
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      lastTouchRef.current = { pageX: e.clientX + scrollX, pageY: e.clientY + scrollY, time: performance.now() };
       addOrUpdateAura(e.clientX, e.clientY);
     };
 
     // 2. Pointer Move / Drag / Swipe
     const onPointerMove = (e: PointerEvent) => {
+      if ((e.target as HTMLElement)?.closest('input, textarea, select, .add-connection-fab, .profile-drawer-sheet')) {
+        return;
+      }
+      const scrollX = window.scrollX || window.pageXOffset || 0;
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      const currentTouchX = e.clientX + scrollX;
+      const currentTouchY = e.clientY + scrollY;
+
       if (e.buttons > 0 || e.pointerType === 'touch') {
-        const dx = e.clientX - lastTouchRef.current.x;
-        const dy = e.clientY - lastTouchRef.current.y;
+        const dx = currentTouchX - lastTouchRef.current.pageX;
+        const dy = currentTouchY - lastTouchRef.current.pageY;
         const dist = Math.hypot(dx, dy);
 
         // Spawn along movement path if moved > 25px
         if (dist > 25) {
-          lastTouchRef.current = { x: e.clientX, y: e.clientY, time: performance.now() };
+          lastTouchRef.current = { pageX: currentTouchX, pageY: currentTouchY, time: performance.now() };
           addOrUpdateAura(e.clientX, e.clientY);
         }
       } else {
-        lastTouchRef.current.x = e.clientX;
-        lastTouchRef.current.y = e.clientY;
+        lastTouchRef.current.pageX = currentTouchX;
+        lastTouchRef.current.pageY = currentTouchY;
       }
     };
 
-    // 3. Scroll / Wheel Interaction
-    const onWheel = (e: WheelEvent) => {
-      const now = performance.now();
-      if (now - lastTouchRef.current.time > 200) {
-        lastTouchRef.current.time = now;
-        const x = lastTouchRef.current.x || window.innerWidth / 2;
-        const y = lastTouchRef.current.y || window.innerHeight / 2;
-        addOrUpdateAura(x, y);
+    // 3. Scroll Listener:
+    // When the user scrolls, start animation so auras immediately move up and down with the page smoothly
+    const onScroll = () => {
+      if (aurasRef.current.length > 0) {
+        startAnimation();
       }
     };
 
     window.addEventListener('pointerdown', onPointerDown, { passive: true });
     window.addEventListener('pointermove', onPointerMove, { passive: true });
-    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
 
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('scroll', onScroll);
     };
   }, [colorRgb]);
 

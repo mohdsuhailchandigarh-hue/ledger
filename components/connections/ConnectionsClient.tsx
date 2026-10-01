@@ -937,6 +937,9 @@ export default function ConnectionsClient({
               const peerSub = isPersonal
                 ? conn.contact_phone || ''
                 : (conn.user_a?.id === currentUserId ? `@${conn.user_b?.username || ''}` : `@${conn.user_a?.username || ''}`);
+              const peerAvatar = isPersonal
+                ? null
+                : (conn.user_a?.id === currentUserId ? conn.user_b?.avatar_url : conn.user_a?.avatar_url);
               const [g1, g2] = GRADIENT_PAIRS[i % GRADIENT_PAIRS.length];
 
               return (
@@ -948,17 +951,27 @@ export default function ConnectionsClient({
                 >
                   <Link
                     href={`/ledger/${conn.id}`}
-                    className="card card-interactive"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', textDecoration: 'none', gap: '1rem' }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.75rem 0.25rem',
+                      textDecoration: 'none',
+                      gap: '1rem',
+                      borderBottom: i === connections.length - 1 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                      transition: 'background 0.15s ease',
+                      borderRadius: '8px',
+                    }}
+                    className="hover:bg-white/5 active:bg-white/10"
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                      {/* Avatar */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', minWidth: 0 }}>
+                      {/* Avatar - perfectly round profile icon */}
                       <div
                         style={{
-                          width: 42,
-                          height: 42,
-                          borderRadius: '12px',
-                          background: isPersonal ? 'var(--bg-overlay)' : `linear-gradient(135deg, ${g1}, ${g2})`,
+                          width: 48,
+                          height: 48,
+                          borderRadius: '50%',
+                          background: isPersonal ? '#202c33' : `linear-gradient(135deg, ${g1}, ${g2})`,
                           border: isPersonal ? '1px solid var(--border-default)' : 'none',
                           display: 'flex',
                           alignItems: 'center',
@@ -967,17 +980,28 @@ export default function ConnectionsClient({
                           fontWeight: 700,
                           color: isPersonal ? 'var(--text-secondary)' : 'white',
                           flexShrink: 0,
+                          overflow: 'hidden',
+                          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
                         }}
                       >
-                        {peerName.charAt(0).toUpperCase()}
+                        {peerAvatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={peerAvatar}
+                            alt={peerName}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: '50%' }}
+                          />
+                        ) : (
+                          peerName.charAt(0).toUpperCase()
+                        )}
                       </div>
 
                       <div style={{ minWidth: 0 }}>
                         <p
                           style={{
-                            fontSize: '0.9375rem',
+                            fontSize: '0.98rem',
                             fontWeight: 600,
-                            color: 'var(--text-primary)',
+                            color: '#f1f5f9',
                             marginBottom: '3px',
                             display: 'flex',
                             alignItems: 'center',
@@ -1016,7 +1040,7 @@ export default function ConnectionsClient({
                             {isPersonal ? 'Personal' : 'Platform'}
                           </span>
                         </p>
-                        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <p style={{ fontSize: '0.8125rem', color: '#8696a0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {peerSub}
                           {' · '}
                           {formatDate(conn.created_at)}
