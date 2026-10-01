@@ -358,23 +358,25 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.95rem',
-                    padding: '0.625rem 0.25rem 0.625rem 0.25rem',
+                    gap: '0.875rem',
+                    padding: '0.625rem 0.625rem',
+                    margin: '0.125rem -0.375rem',
+                    borderRadius: '14px',
                     textDecoration: 'none',
-                    transition: 'background 0.15s ease',
+                    transition: 'background 0.15s ease, transform 0.1s ease',
                     position: 'relative',
                     cursor: 'pointer',
-                    width: '100%',
                     boxSizing: 'border-box',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
-                  className="hover:bg-white/5 active:bg-white/10"
+                  className="hover:bg-white/[0.04] active:bg-white/[0.08]"
                 >
-                  {/* Left: Perfectly Rounded 52px Profile Picture */}
+                  {/* Left: Perfectly Rounded 50px Profile Picture */}
                   <div
                     style={{
                       position: 'relative',
-                      width: 52,
-                      height: 52,
+                      width: 50,
+                      height: 50,
                       borderRadius: '50%',
                       flexShrink: 0,
                       background: isPersonal ? '#202c33' : `linear-gradient(135deg, ${g1}, ${g2})`,
@@ -414,7 +416,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                     )}
                   </div>
 
-                  {/* Right Content Area + Hairline Separator Line */}
+                  {/* Right Content Area */}
                   <div
                     style={{
                       display: 'flex',
@@ -423,9 +425,6 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                       flex: 1,
                       minWidth: 0,
                       gap: '0.75rem',
-                      paddingBottom: '0.75rem',
-                      paddingTop: '0.25rem',
-                      borderBottom: isLast ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
                     }}
                   >
                     {/* Middle Column: Account Name + Subtitle (Note / Preview with optional time) */}
@@ -596,6 +595,17 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                     })()}
                   </div>
                 </Link>
+                {/* Hairline Separator Line indented past avatar */}
+                {!isLast && (
+                  <div
+                    style={{
+                      height: '1px',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      marginLeft: '4.25rem',
+                      marginRight: '0.375rem',
+                    }}
+                  />
+                )}
               </motion.div>
             );
           })}

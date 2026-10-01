@@ -98,6 +98,7 @@
   -ms-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   caret-color: transparent;
   cursor: default;
 }
@@ -189,20 +190,25 @@ textarea::selection {
   color: #ffffff !important;
 }
 
-/* Custom scrollbar */
+/* ============================================================
+   HIDE SCROLLBARS GLOBALLY
+   ============================================================ */
+
+/* Hide scrollbar for Chrome, Safari, Edge, Opera, and mobile WebKit */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border-default);
-  border-radius: var(--radius-full);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--border-strong);
+
+/* Hide scrollbar for Firefox, IE, and Edge */
+html,
+body,
+*,
+*::before,
+*::after {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 /* ============================================================
@@ -700,7 +706,13 @@ textarea::selection {
 .scroll-area {
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-gutter: stable;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.scroll-area::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 /* ============================================================

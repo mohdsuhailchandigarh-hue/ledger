@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import UserProfileDrawer from '@/components/dashboard/UserProfileDrawer';
-import { extractPaletteFromUrl, type ExtractedPalette } from '@/lib/utils/colorExtractor';
 
 type Props = {
   userName: string;
@@ -43,29 +42,12 @@ export default function DashboardTopBar({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentAvatar, setCurrentAvatar] = useState<string | null>(avatarUrl ?? null);
   const [imgError, setImgError] = useState(false);
-  const [photoPalette, setPhotoPalette] = useState<ExtractedPalette | null>(null);
 
   useEffect(() => {
     setCurrentAvatar(avatarUrl ?? null);
     setImgError(false);
   }, [avatarUrl]);
 
-  // Dynamically extract photo color reflection
-  useEffect(() => {
-    if (!currentAvatar || imgError) {
-      setPhotoPalette(null);
-      return;
-    }
-    let isMounted = true;
-    extractPaletteFromUrl(currentAvatar).then((palette) => {
-      if (isMounted) {
-        setPhotoPalette(palette);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [currentAvatar, imgError]);
   const initials = getInitials(userName);
 
   const isPositive = netPosition > 0;
@@ -186,7 +168,7 @@ export default function DashboardTopBar({
             </div>
           </div>
 
-          {/* Right: Windows 11 Frosted Profile Icon CTA with Dynamic Photo Reflection Glow */}
+          {/* Right: Windows 11 Frosted Profile Icon CTA */}
           <div
             style={{
               position: 'relative',
@@ -196,110 +178,14 @@ export default function DashboardTopBar({
               flexShrink: 0,
             }}
           >
-            {/* Dynamic Photo Ambient Reflection Glow - Layer 1 (Wide Atmospheric Bloom with Gentle Breathing) */}
-            {currentAvatar && !imgError && (
-              <motion.div
-                animate={{
-                  scale: [1, 1.09, 1],
-                  opacity: [0.72, 0.95, 0.72],
-                }}
-                transition={{
-                  duration: 3.6,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-                style={{
-                  position: 'absolute',
-                  inset: -9,
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  filter: 'blur(14px) saturate(220%) brightness(1.2)',
-                  pointerEvents: 'none',
-                  zIndex: 0,
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={currentAvatar}
-                  alt=""
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    transform: 'scale(1.4)',
-                  }}
-                />
-              </motion.div>
-            )}
-
-            {/* Dynamic Photo Ambient Reflection Glow - Layer 2 (Intense Chromatic Rim Aura) */}
-            {currentAvatar && !imgError && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: -3,
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  filter: 'blur(7px) saturate(260%) brightness(1.3)',
-                  opacity: 0.92,
-                  pointerEvents: 'none',
-                  zIndex: 0,
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={currentAvatar}
-                  alt=""
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    transform: 'scale(1.2)',
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Dynamic Ambient Light Wash using extracted tone */}
-            {currentAvatar && !imgError && photoPalette && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: -14,
-                  borderRadius: '50%',
-                  background: `radial-gradient(circle, ${photoPalette.accentGlow} 0%, ${photoPalette.subtleTint} 55%, transparent 80%)`,
-                  filter: 'blur(12px)',
-                  pointerEvents: 'none',
-                  zIndex: 0,
-                  opacity: 0.85,
-                  transition: 'background 0.4s ease',
-                }}
-              />
-            )}
-
-            {/* Fallback glow for initials */}
-            {(!currentAvatar || imgError) && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: -4,
-                  borderRadius: '50%',
-                  background: 'radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(99, 102, 241, 0.15) 60%, transparent 85%)',
-                  filter: 'blur(8px)',
-                  pointerEvents: 'none',
-                  zIndex: 0,
-                }}
-              />
-            )}
-
             <motion.button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsProfileOpen(true);
               }}
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.94 }}
               aria-label="Account and features menu"
               title="Profile & Menu"
               style={{
@@ -310,9 +196,7 @@ export default function DashboardTopBar({
                 background: currentAvatar && !imgError
                   ? '#090d16'
                   : 'linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 100%)',
-                border: currentAvatar && !imgError
-                  ? (photoPalette?.borderTint ? `1.5px solid ${photoPalette.borderTint}` : '1.5px solid rgba(255, 255, 255, 0.5)')
-                  : '1.5px solid rgba(255, 255, 255, 0.22)',
+                border: '1.5px solid rgba(255, 255, 255, 0.22)',
                 backdropFilter: 'blur(16px)',
                 WebkitBackdropFilter: 'blur(16px)',
                 display: 'flex',
@@ -321,13 +205,10 @@ export default function DashboardTopBar({
                 fontSize: '0.875rem',
                 fontWeight: 700,
                 color: 'var(--text-primary)',
-                boxShadow: currentAvatar && !imgError
-                  ? `0 4px 16px rgba(0, 0, 0, 0.5), 0 0 16px ${photoPalette?.subtleTint || 'rgba(255, 255, 255, 0.2)'}, inset 0 1px 1px rgba(255, 255, 255, 0.4)`
-                  : '0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.2)',
                 flexShrink: 0,
                 cursor: 'pointer',
                 outline: 'none',
-                transition: 'border-color 0.25s ease, box-shadow 0.25s ease',
                 overflow: 'hidden',
                 zIndex: 2,
               }}
