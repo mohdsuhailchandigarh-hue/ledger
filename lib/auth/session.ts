@@ -68,18 +68,16 @@ export async function createUserSession(userId: string): Promise<string> {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + SESSION_DURATION_DAYS);
 
-  // Maintain DB session record in the background without blocking the login response
-  (async () => {
-    try {
-      await supabaseAdmin.from('sessions').insert({
-        user_id: userId,
-        token,
-        expires_at: expiresAt.toISOString(),
-      });
-    } catch (err) {
-      console.error('Failed to insert background session:', err);
-    }
-  })();
+  // Maintain DB session record
+  try {
+    await supabaseAdmin.from('sessions').upsert({
+      user_id: userId,
+      token,
+      expires_at: expiresAt.toISOString(),
+    });
+  } catch (err) {
+    console.error('Failed to save session to DB:', err);
+  }
 
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
@@ -131,15 +129,42 @@ export const getUserFromSession = cache(async (): Promise<SessionUser | null> =>
   const isServerAction = reqHeaders.has('next-action');
 
   if (!isServerAction) {
-    const { data: dbSession, error } = await supabaseAdmin
-      .from('sessions')
-      .select('user_id')
-      .eq('token', token)
-      .single();
+    try {
+      const { data: dbSession, error } = await supabaseAdmin
+        .from('sessions')
+        .select('user_id')
+        .eq('token', token)
+        .maybeSingle();
 
-    if (error || !dbSession) {
-      console.log('[DEBUG getUserFromSession] DB session lookup failed! error:', error?.message, 'token:', token?.slice(0, 50));
-      redirect('/api/auth/clear-session');
+      if (error) {
+        // Transient network or DB error: do not invalidate valid cryptographic HMAC session!
+        console.warn('[getUserFromSession] DB session lookup non-fatal error:', error.message);
+      } else if (!dbSession) {
+        // Check if user was explicitly deactivated in the database
+        const { data: dbUser } = await supabaseAdmin
+          .from('users')
+          .select('is_active')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (dbUser && !dbUser.is_active) {
+          redirect('/api/auth/clear-session');
+        }
+
+        // Auto-heal session record in DB without throwing error
+        void (async () => {
+          try {
+            await supabaseAdmin.from('sessions').upsert({
+              user_id: user.id,
+              token,
+              expires_at: new Date(Date.now() + 365 * 100 * 24 * 60 * 60 * 1000).toISOString(),
+            });
+          } catch {}
+        })();
+      }
+    } catch (err: any) {
+      if (err?.digest?.startsWith?.('NEXT_REDIRECT')) throw err;
+      console.warn('[getUserFromSession] Non-fatal check error:', err);
     }
   }
 

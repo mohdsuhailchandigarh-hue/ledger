@@ -45,7 +45,8 @@ export default async function LedgerPage({
       `)
       .eq('connection_id', connectionId)
       .order('transaction_date', { ascending: false })
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .limit(50),
     supabaseAdmin
       .from('connection_balances')
       .select('net_amount')
@@ -56,18 +57,30 @@ export default async function LedgerPage({
 
   let connection: any = connectionResultRaw.data;
   
-  // Handle database schema fallback gracefully in case migration columns are not fully present
-  if (connectionResultRaw.error && connectionResultRaw.error.code === '42703') {
+  // Handle database schema fallback gracefully in case migration columns or FK errors occur
+  if (connectionResultRaw.error || !connection) {
+    console.warn('[LedgerPage] connectionResultRaw error, trying safe fallback:', connectionResultRaw.error?.message);
     const fallbackResult = await supabaseAdmin
       .from('connections')
-      .select(`
-        id, user_a_id, user_b_id,
-        user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
-        user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
-      `)
+      .select('id, user_a_id, user_b_id, contact_name, contact_phone, deleted_by_a, deleted_by_b')
       .eq('id', connectionId)
-      .single();
-    connection = fallbackResult.data;
+      .maybeSingle();
+
+    if (fallbackResult.data) {
+      const raw = fallbackResult.data;
+      const userIds = [raw.user_a_id, raw.user_b_id].filter(Boolean);
+      const { data: usersList } = await supabaseAdmin
+        .from('users')
+        .select('id, username, name, avatar_url')
+        .in('id', userIds);
+
+      const userMap = new Map((usersList || []).map((u) => [u.id, u]));
+      connection = {
+        ...raw,
+        user_a: userMap.get(raw.user_a_id) || null,
+        user_b: raw.user_b_id ? userMap.get(raw.user_b_id) || null : null,
+      };
+    }
   }
 
   if (!connection) notFound();
@@ -78,9 +91,12 @@ export default async function LedgerPage({
 
   if (!isUserA && !isUserB) notFound();
 
-  // Redirect if this user has soft-deleted their side of the ledger
+  // If user opens this account, ensure it is active and not soft-deleted
   if ((isUserA && conn.deleted_by_a) || (isUserB && conn.deleted_by_b)) {
-    redirect('/dashboard');
+    await supabaseAdmin
+      .from('connections')
+      .update(isUserA ? { deleted_by_a: false } : { deleted_by_b: false })
+      .eq('id', connectionId);
   }
 
   const isPersonal = conn.user_b_id === null;
@@ -100,6 +116,7 @@ export default async function LedgerPage({
       transactions={transactions as any[]}
       netBalance={netBalance}
       isDisconnected={isDisconnected}
+      initialHasMore={transactions.length === 50}
     />
   );
 }

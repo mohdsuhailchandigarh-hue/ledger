@@ -359,3 +359,132 @@ export async function getMonthlyFinancialSummaryAction() {
   return { monthlyGet, monthlyGive };
 }
 
+// ─── Get Single Ledger Details (Instant In-App SPA Transition) ──
+export async function getLedgerDetailsAction(connectionId: string) {
+  const currentUser = await getUserFromSession();
+  if (!currentUser) return { error: 'Unauthorized' };
+
+  const [connectionResultRaw, transactionsResult, balanceResult] = await Promise.all([
+    supabaseAdmin
+      .from('connections')
+      .select(`
+        id, user_a_id, user_b_id, contact_name, contact_phone,
+        deleted_by_a, deleted_by_b,
+        user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
+        user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
+      `)
+      .eq('id', connectionId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('transactions')
+      .select(`
+        id, amount, direction, note, status, created_at, transaction_date,
+        creator:users!transactions_creator_id_fkey(id, name, username),
+        counterparty:users!transactions_counterparty_id_fkey(id, name, username)
+      `)
+      .eq('connection_id', connectionId)
+      .order('transaction_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(50),
+    supabaseAdmin
+      .from('connection_balances')
+      .select('net_amount')
+      .eq('connection_id', connectionId)
+      .eq('user_id', currentUser.id)
+      .maybeSingle(),
+  ]);
+
+  let connection: any = connectionResultRaw.data;
+  if (!connection) {
+    const fallback = await supabaseAdmin
+      .from('connections')
+      .select('id, user_a_id, user_b_id, contact_name, contact_phone, deleted_by_a, deleted_by_b')
+      .eq('id', connectionId)
+      .maybeSingle();
+
+    if (fallback.data) {
+      const raw = fallback.data;
+      const userIds = [raw.user_a_id, raw.user_b_id].filter(Boolean);
+      const { data: usersList } = await supabaseAdmin
+        .from('users')
+        .select('id, username, name, avatar_url')
+        .in('id', userIds);
+      const userMap = new Map((usersList || []).map((u) => [u.id, u]));
+      connection = {
+        ...raw,
+        user_a: userMap.get(raw.user_a_id) || null,
+        user_b: raw.user_b_id ? userMap.get(raw.user_b_id) || null : null,
+      };
+    }
+  }
+
+  if (!connection) return { error: 'Ledger not found' };
+
+  const conn = connection as any;
+  const isUserA = conn.user_a_id === currentUser.id;
+  const isUserB = conn.user_b_id === currentUser.id;
+
+  if (!isUserA && !isUserB) return { error: 'Unauthorized' };
+
+  // Ensure connection is not soft-deleted
+  if ((isUserA && conn.deleted_by_a) || (isUserB && conn.deleted_by_b)) {
+    await supabaseAdmin
+      .from('connections')
+      .update(isUserA ? { deleted_by_a: false } : { deleted_by_b: false })
+      .eq('id', connectionId);
+  }
+
+  const isPersonal = conn.user_b_id === null;
+  const isDisconnected = !isPersonal && ((isUserA && conn.deleted_by_b) || (isUserB && conn.deleted_by_a));
+  const peer = isPersonal
+    ? { id: 'offline', name: conn.contact_name || 'Contact', username: conn.contact_phone || 'Offline', isPersonal: true }
+    : (isUserA ? conn.user_b : conn.user_a);
+
+  const transactions = (transactionsResult.data ?? []) as any[];
+  const netBalance = Number((balanceResult.data as any)?.net_amount ?? 0);
+  const hasMore = transactions.length === 50;
+
+  return {
+    connectionId,
+    peer,
+    transactions,
+    netBalance,
+    isDisconnected,
+    hasMore,
+  };
+}
+
+export async function loadMoreTransactionsAction(
+  connectionId: string,
+  offset: number = 0,
+  limit: number = 50
+) {
+  const currentUser = await getUserFromSession();
+  if (!currentUser) return { error: 'Unauthorized', transactions: [], hasMore: false };
+
+  const { data, error } = await supabaseAdmin
+    .from('transactions')
+    .select(`
+      id, amount, direction, note, status, created_at, transaction_date,
+      creator:users!transactions_creator_id_fkey(id, name, username),
+      counterparty:users!transactions_counterparty_id_fkey(id, name, username)
+    `)
+    .eq('connection_id', connectionId)
+    .order('transaction_date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    return { error: error.message, transactions: [], hasMore: false };
+  }
+
+  const transactions = (data || []) as any[];
+  const hasMore = transactions.length === limit;
+
+  return {
+    transactions,
+    hasMore,
+  };
+}
+
+

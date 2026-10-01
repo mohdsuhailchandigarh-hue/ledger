@@ -564,24 +564,29 @@ body,
 }
 
 /* ============================================================
-   SKELETON SHIMMER
+   SKELETON SHIMMER (Crisp & High-Performance)
    ============================================================ */
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--bg-elevated) 25%,
-    var(--bg-overlay) 50%,
-    var(--bg-elevated) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.8s ease-in-out infinite;
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.12) 37%,
+    rgba(255, 255, 255, 0.04) 63%
+  ) !important;
+  background-size: 400% 100% !important;
+  animation: shimmer 1.35s ease-in-out infinite !important;
   border-radius: var(--radius-md);
+  will-change: background-position;
 }
 
 /* ============================================================
@@ -780,5 +785,16 @@ body,
   .mobile-only {
     display: none !important;
   }
+}
+
+/* ============================================================
+   HIDE DASHBOARD-ONLY CTAS WHEN ACCOUNT CHAT IS OPEN
+   ============================================================ */
+body.ledger-view-open .dashboard-permanent-topbar,
+body.ledger-view-open .add-connection-fab {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
 }
 

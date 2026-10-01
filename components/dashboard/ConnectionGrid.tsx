@@ -1,10 +1,14 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { UserCheck, Search, X, User, CheckCheck } from 'lucide-react';
 import { formatAmount } from '@/lib/utils/currency';
+import LedgerSkeleton from '@/components/ledger/LedgerSkeleton';
+import LedgerClient from '@/components/ledger/LedgerClient';
+import { getLedgerDetailsAction } from '@/lib/actions/transaction.actions';
 
 type Connection = {
   id: string;
@@ -83,10 +87,122 @@ function formatWhatsAppDate(dateStr?: string | null): string {
 }
 
 export default function ConnectionGrid({ connections, currentUserId, balances, latestTransactions }: Props) {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [activeLedger, setActiveLedger] = useState<{
+    connectionId: string;
+    peer: { id: string; name: string; username: string; avatar_url?: string | null; isPersonal?: boolean };
+    netBalance: number;
+    transactions: any[] | null;
+    isDisconnected: boolean;
+    hasMore?: boolean;
+  } | null>(null);
+
+  const [mounted, setMounted] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // When account chat is active, hide dashboard-only top/bottom CTAs and lock body scroll
+  useEffect(() => {
+    if (activeLedger) {
+      document.body.classList.add('ledger-view-open');
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.classList.remove('ledger-view-open');
+        document.body.style.overflow = prevOverflow;
+      };
+    } else {
+      document.body.classList.remove('ledger-view-open');
+    }
+  }, [activeLedger]);
+
+  const openLedger = useCallback(async (connId: string, peerData: any, currentBalance: number) => {
+    // 1. Immediately show the in-app view with instant skeleton (0ms!)
+    setActiveLedger({
+      connectionId: connId,
+      peer: peerData,
+      netBalance: currentBalance,
+      transactions: null,
+      isDisconnected: false,
+    });
+
+    // 2. Update browser history state without full document reload so Safari never pops up its browser chrome
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ ledgerId: connId }, '', `/ledger/${connId}`);
+    }
+
+    // 3. Fetch full transactions via Server Action
+    try {
+      const res = await getLedgerDetailsAction(connId);
+      if (res && !('error' in res)) {
+        setActiveLedger({
+          connectionId: res.connectionId,
+          peer: res.peer,
+          netBalance: res.netBalance,
+          transactions: res.transactions,
+          isDisconnected: res.isDisconnected,
+          hasMore: res.hasMore,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load ledger details:', e);
+    }
+  }, []);
+
+  const closeLedger = useCallback(() => {
+    setActiveLedger(null);
+    if (typeof window !== 'undefined') {
+      if (window.history.state?.ledgerId) {
+        window.history.back();
+      } else {
+        window.history.replaceState(null, '', '/dashboard');
+      }
+    }
+    // Silently refresh dashboard balances in background
+    router.refresh();
+  }, [router]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      // If user swipes back or taps browser back button, close active ledger if open
+      setActiveLedger((current) => {
+        if (current) {
+          router.refresh();
+          return null;
+        }
+        return null;
+      });
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [router]);
+
+  const reloadActiveLedger = useCallback(async () => {
+    if (!activeLedger) return;
+    try {
+      const res = await getLedgerDetailsAction(activeLedger.connectionId);
+      if (res && !('error' in res)) {
+        setActiveLedger({
+          connectionId: res.connectionId,
+          peer: res.peer,
+          netBalance: res.netBalance,
+          transactions: res.transactions,
+          isDisconnected: res.isDisconnected,
+          hasMore: res.hasMore,
+        });
+      }
+      router.refresh();
+    } catch (e) {
+      console.error('Failed to reload ledger:', e);
+    }
+  }, [activeLedger, router]);
 
   // Smoothly scroll the search bar up so it sits directly under the top sticky CTA / topbar
   const scrollToSearch = useCallback(() => {
@@ -352,9 +468,16 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                   ease: [0.22, 1, 0.36, 1],
                 }}
               >
-                <Link
-                  href={`/ledger/${conn.id}`}
-                  prefetch={false}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openLedger(conn.id, peer, balance)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openLedger(conn.id, peer, balance);
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -362,12 +485,12 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                     padding: '0.625rem 0.625rem',
                     margin: '0.125rem -0.375rem',
                     borderRadius: '14px',
-                    textDecoration: 'none',
                     transition: 'background 0.15s ease, transform 0.1s ease',
                     position: 'relative',
                     cursor: 'pointer',
                     boxSizing: 'border-box',
                     WebkitTapHighlightColor: 'transparent',
+                    userSelect: 'none',
                   }}
                   className="hover:bg-white/[0.04] active:bg-white/[0.08]"
                 >
@@ -594,7 +717,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                       );
                     })()}
                   </div>
-                </Link>
+                </div>
                 {/* Hairline Separator Line indented past avatar */}
                 {!isLast && (
                   <div
@@ -610,6 +733,51 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
             );
           })}
         </div>
+      )}
+
+      {/* Native In-App Full-Screen SPA Ledger View (No Safari URL bar, No bottom action buttons, Mounted to body with zIndex 99999) */}
+      {mounted && typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {activeLedger && (
+            <motion.div
+              initial={{ opacity: 0, x: '8%' }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: '8%' }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 99999,
+                background: 'var(--bg-base)',
+                overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              {activeLedger.transactions === null ? (
+                <LedgerSkeleton
+                  peerName={activeLedger.peer.name}
+                  peerAvatar={activeLedger.peer.avatar_url}
+                  peerUsername={activeLedger.peer.username}
+                  isPersonal={activeLedger.peer.isPersonal}
+                  onBack={closeLedger}
+                />
+              ) : (
+                <LedgerClient
+                  connectionId={activeLedger.connectionId}
+                  peer={activeLedger.peer}
+                  currentUserId={currentUserId}
+                  transactions={activeLedger.transactions}
+                  netBalance={activeLedger.netBalance}
+                  isDisconnected={activeLedger.isDisconnected}
+                  initialHasMore={activeLedger.hasMore}
+                  onBack={closeLedger}
+                  onRefresh={reloadActiveLedger}
+                />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
       )}
     </div>
   );
