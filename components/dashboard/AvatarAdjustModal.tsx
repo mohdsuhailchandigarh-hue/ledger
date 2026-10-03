@@ -272,9 +272,9 @@ export default function AvatarAdjustModal({
             position: 'fixed',
             inset: 0,
             zIndex: 150,
-            background: 'rgba(5, 7, 12, 0.96)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
+            background: 'rgba(5, 7, 12, 0.85)',
+            backdropFilter: 'blur(60px) saturate(190%)',
+            WebkitBackdropFilter: 'blur(60px) saturate(190%)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
@@ -570,7 +570,7 @@ export default function AvatarAdjustModal({
                 onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
                 style={{
                   flex: 1,
-                  accentColor: '#6366f1',
+                  accentColor: '#3897f0',
                   cursor: 'pointer',
                   height: 4,
                 }}
@@ -631,7 +631,7 @@ export default function AvatarAdjustModal({
                 style={{
                   padding: '0.875rem 1.25rem',
                   borderRadius: '16px',
-                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
+                  background: 'linear-gradient(135deg, #065DE8 0%, #3897f0 50%, #ec4899 100%)',
                   border: 'none',
                   color: '#ffffff',
                   fontSize: '0.9375rem',
@@ -641,7 +641,7 @@ export default function AvatarAdjustModal({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  boxShadow: '0 8px 24px rgba(99, 102, 241, 0.45)',
+                  boxShadow: '0 8px 24px rgba(56, 151, 240, 0.45)',
                   transition: 'all 0.15s ease',
                 }}
               >

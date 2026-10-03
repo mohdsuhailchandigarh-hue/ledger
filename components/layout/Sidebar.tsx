@@ -87,12 +87,12 @@ export default function Sidebar({ pendingCount = 0, user }: Props) {
                 width: 34,
                 height: 34,
                 borderRadius: '9px',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                background: 'linear-gradient(135deg, #065DE8, #3897f0)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                boxShadow: '0 2px 12px rgba(99,102,241,0.35)',
+                boxShadow: '0 2px 12px rgba(56,151,240,0.35)',
               }}
             >
               <TrendingUp size={17} color="white" />
@@ -175,10 +175,10 @@ export default function Sidebar({ pendingCount = 0, user }: Props) {
                   borderRadius: '9px',
                   textDecoration: 'none',
                   background: active
-                    ? 'rgba(99,102,241,0.12)'
+                    ? 'rgba(56,151,240,0.12)'
                     : 'transparent',
                   border: active
-                    ? '1px solid rgba(99,102,241,0.2)'
+                    ? '1px solid rgba(56,151,240,0.2)'
                     : '1px solid transparent',
                   color: active ? 'var(--accent-primary)' : 'var(--text-secondary)',
                   transition: 'all 0.15s',
@@ -304,7 +304,7 @@ export default function Sidebar({ pendingCount = 0, user }: Props) {
                 width: 32,
                 height: 32,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                background: 'linear-gradient(135deg, #065DE8, #3897f0)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

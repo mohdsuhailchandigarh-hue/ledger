@@ -49,14 +49,11 @@ export default function LedgerSkeleton({
     >
       {/* ─── Sticky Top Header ─── */}
       <div
+        className="apple-glass-bar"
         style={{
           position: 'sticky',
           top: 0,
           zIndex: 40,
-          background: 'rgba(6, 6, 8, 0.85)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid var(--border-subtle)',
           padding: '0 1.25rem',
         }}
       >
@@ -141,7 +138,7 @@ export default function LedgerSkeleton({
                   width: 38,
                   height: 38,
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  background: 'linear-gradient(135deg, #065DE8, #3897f0)',
                   border: '1px solid rgba(255, 255, 255, 0.12)',
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
                   display: 'flex',

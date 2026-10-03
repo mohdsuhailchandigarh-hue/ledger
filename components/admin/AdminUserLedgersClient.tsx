@@ -102,7 +102,7 @@ export default function AdminUserLedgersClient({ user, connections }: Props) {
                 width: 42,
                 height: 42,
                 borderRadius: '12px',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                background: 'linear-gradient(135deg, #065DE8, #3897f0)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

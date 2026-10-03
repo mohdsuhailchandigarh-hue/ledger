@@ -51,8 +51,8 @@ const TABS: TabItem[] = [
     href: '/notifications',
     icon: Bell,
     label: 'Approvals',
-    color: 'linear-gradient(135deg, #6d28d9 0%, #8b5cf6 50%, #a78bfa 100%)',
-    glow: 'rgba(139, 92, 246, 0.65)',
+    color: 'linear-gradient(135deg, #065DE8 0%, #3897f0 50%, #58abf5 100%)',
+    glow: 'rgba(56, 151, 240, 0.65)',
   },
   {
     id: 'more',
@@ -512,9 +512,9 @@ export default function BottomNav({ pendingCount = 0 }: Props) {
               style={{
                 position: 'fixed',
                 inset: 0,
-                background: 'rgba(0, 0, 0, 0.65)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
+                background: 'rgba(0, 0, 0, 0.45)',
+                backdropFilter: 'blur(30px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(30px) saturate(180%)',
                 zIndex: 60,
               }}
             />
@@ -590,8 +590,8 @@ export default function BottomNav({ pendingCount = 0 }: Props) {
                       width: 38,
                       height: 38,
                       borderRadius: '10px',
-                      background: 'rgba(99, 102, 241, 0.12)',
-                      border: '1px solid rgba(99, 102, 241, 0.25)',
+                      background: 'rgba(56, 151, 240, 0.12)',
+                      border: '1px solid rgba(56, 151, 240, 0.25)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',

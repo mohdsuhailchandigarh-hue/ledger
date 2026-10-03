@@ -46,7 +46,7 @@ function getInitials(name: string) {
 }
 
 const GRADIENT_PAIRS = [
-  ['#6366f1', '#8b5cf6'],
+  ['#065DE8', '#3897f0'],
   ['#10b981', '#059669'],
   ['#f59e0b', '#d97706'],
   ['#3b82f6', '#2563eb'],
@@ -204,15 +204,22 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
     }
   }, [activeLedger, router]);
 
-  // Smoothly scroll the search bar up so it sits directly under the top sticky CTA / topbar
+  // Smoothly scroll the search bar up so it sits comfortably below the top sticky CTA with clear breathing room
   const scrollToSearch = useCallback(() => {
     if (!searchContainerRef.current) return;
-    const topBarEl = (document.querySelector('.dashboard-permanent-topbar') || document.querySelector('header')) as HTMLElement | null;
-    const topBarHeight = topBarEl ? topBarEl.getBoundingClientRect().height : 68;
-    const rect = searchContainerRef.current.getBoundingClientRect();
+    const wrapperEl = (document.querySelector('.dashboard-topbar-wrapper') || document.querySelector('.dashboard-permanent-topbar')) as HTMLElement | null;
+    const wrapperHeight = wrapperEl ? wrapperEl.getBoundingClientRect().height : 92;
+
+    // Check if there is an Accounts heading right above ConnectionGrid to keep entire section clearly visible
+    const parentContainer = searchContainerRef.current.closest('div[style*="flex-direction: column"]') || searchContainerRef.current.parentElement;
+    const headingEl = parentContainer?.querySelector('h2');
+    const targetElement = headingEl || searchContainerRef.current;
+
+    const rect = targetElement.getBoundingClientRect();
     const currentScroll = window.scrollY || window.pageYOffset || 0;
-    // Exactly under the top bar with clean 8px buffer
-    const targetY = Math.max(0, currentScroll + rect.top - topBarHeight - 8);
+
+    // Position comfortably below the sticky topbar wrapper and blur veil with 20px clearance
+    const targetY = Math.max(0, currentScroll + rect.top - wrapperHeight - 20);
 
     window.scrollTo({
       top: targetY,
@@ -334,13 +341,13 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
           style={{
             position: 'relative',
             marginBottom: '0.75rem',
-            scrollMarginTop: '80px',
+            scrollMarginTop: '140px',
             zIndex: 20,
           }}
         >
           <Search
             size={14}
-            color={isFocused ? '#10b981' : '#8696a0'}
+            color={isFocused ? '#3897f0' : '#8696a0'}
             style={{
               position: 'absolute',
               left: 14,
@@ -353,6 +360,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
           <input
             ref={inputRef}
             type="text"
+            className="account-search-input"
             enterKeyHint="search"
             placeholder="Search accounts or notes..."
             value={query}
@@ -373,11 +381,12 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
               width: '100%',
               padding: '0.625rem 2.2rem 0.625rem 2.35rem',
               borderRadius: '9999px',
-              background: isFocused ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.05)',
-              border: isFocused ? '1px solid rgba(16, 185, 129, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: isFocused ? '0 0 16px rgba(16, 185, 129, 0.15)' : 'none',
+              background: isFocused ? 'rgba(56, 151, 240, 0.08)' : 'rgba(255, 255, 255, 0.05)',
+              border: isFocused ? '1px solid rgba(56, 151, 240, 0.65)' : '1px solid rgba(255, 255, 255, 0.08)',
+              boxShadow: isFocused ? '0 0 0 2px rgba(56, 151, 240, 0.22), 0 2px 14px rgba(6, 93, 232, 0.18)' : 'none',
               color: 'var(--text-primary)',
               fontSize: '16px',
+              caretColor: '#3897f0',
               outline: 'none',
               transition: 'border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
               WebkitAppearance: 'none',
@@ -648,12 +657,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                                       : latestStatus === 'Approved'
                                       ? '#10b981'
                                       : '#f43f5e',
-                                  boxShadow:
-                                    latestStatus === 'Pending'
-                                      ? '0 0 6px rgba(245, 158, 11, 0.65)'
-                                      : latestStatus === 'Approved'
-                                      ? '0 0 6px rgba(16, 185, 129, 0.65)'
-                                      : 'none',
+                                  boxShadow: 'none',
                                 }}
                               />
                               {latestStatus}
@@ -675,7 +679,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                                 fontWeight: 700,
                                 fontSize: '0.735rem',
                                 letterSpacing: '-0.02em',
-                                boxShadow: '0 0 10px rgba(16, 185, 129, 0.2)',
+                                boxShadow: 'none',
                               }}
                             >
                               +₹{formatAmount(balance).replace('₹', '')}
@@ -694,7 +698,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                                 fontWeight: 700,
                                 fontSize: '0.735rem',
                                 letterSpacing: '-0.02em',
-                                boxShadow: '0 0 10px rgba(244, 63, 94, 0.2)',
+                                boxShadow: 'none',
                               }}
                             >
                               -₹{formatAmount(Math.abs(balance)).replace('₹', '')}

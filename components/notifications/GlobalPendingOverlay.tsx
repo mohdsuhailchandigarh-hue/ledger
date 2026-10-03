@@ -42,8 +42,8 @@ function getInitials(name: string) {
 
 function avatarGradient(name: string) {
   const palettes = [
-    'linear-gradient(135deg,#6366f1,#8b5cf6)',
-    'linear-gradient(135deg,#0ea5e9,#6366f1)',
+    'linear-gradient(135deg,#065DE8,#3897f0)',
+    'linear-gradient(135deg,#0ea5e9,#065DE8)',
     'linear-gradient(135deg,#f59e0b,#ef4444)',
     'linear-gradient(135deg,#10b981,#0ea5e9)',
     'linear-gradient(135deg,#ec4899,#8b5cf6)',
@@ -197,9 +197,9 @@ export default function GlobalPendingOverlay({
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0, 0, 0, 0.72)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
+              background: 'rgba(0, 0, 0, 0.45)',
+              backdropFilter: 'blur(30px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(30px) saturate(180%)',
               zIndex: 9998,
               touchAction: 'none',
             }}
@@ -466,9 +466,9 @@ export default function GlobalPendingOverlay({
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.72)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
+            background: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(30px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(30px) saturate(180%)',
             zIndex: 9998,
             touchAction: 'none',
           }}
@@ -975,7 +975,7 @@ export default function GlobalPendingOverlay({
                             style={{
                               width: '100%',
                               height: 48,
-                              background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                              background: 'linear-gradient(135deg, #065DE8 0%, #3897f0 100%)',
                               color: '#ffffff',
                               fontSize: '0.975rem',
                               fontWeight: 700,
@@ -986,7 +986,7 @@ export default function GlobalPendingOverlay({
                               alignItems: 'center',
                               justifyContent: 'center',
                               gap: '0.5rem',
-                              boxShadow: '0 4px 18px rgba(99, 102, 241, 0.35)',
+                              boxShadow: '0 4px 18px rgba(56, 151, 240, 0.35)',
                             }}
                           >
                             {isLoading ? <span className="spin-indicator" /> : <RotateCcw size={16} />}

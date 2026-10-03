@@ -40,8 +40,8 @@ const BTN_SPRING = { type: 'spring' as const, stiffness: 420, damping: 26 };
 
 function avatarGradient(name: string) {
   const palettes = [
-    'linear-gradient(135deg,#6366f1,#8b5cf6)',
-    'linear-gradient(135deg,#0ea5e9,#6366f1)',
+    'linear-gradient(135deg,#065DE8,#3897f0)',
+    'linear-gradient(135deg,#0ea5e9,#065DE8)',
     'linear-gradient(135deg,#f59e0b,#ef4444)',
     'linear-gradient(135deg,#10b981,#0ea5e9)',
     'linear-gradient(135deg,#ec4899,#8b5cf6)',
@@ -695,7 +695,7 @@ export default function NotificationsClient({ approvals, currentUserId }: Props)
                               {isRejectedStatus && !isEditing && (
                                 <>
                                   <motion.button
-                                    whileHover={{ scale: 1.01, boxShadow: '0 6px 24px rgba(99,102,241,0.4)' }}
+                                    whileHover={{ scale: 1.01, boxShadow: '0 6px 24px rgba(56,151,240,0.4)' }}
                                     whileTap={{ scale: 0.98 }}
                                     transition={BTN_SPRING}
                                     onClick={() => handleRejectedAction(txn.id, 're_request')}
@@ -704,13 +704,13 @@ export default function NotificationsClient({ approvals, currentUserId }: Props)
                                     style={{
                                       width: '100%',
                                       height: 'clamp(52px, 8vw, 60px)',
-                                      background: 'linear-gradient(135deg,#4f46e5,#6366f1)',
+                                      background: 'linear-gradient(135deg,#065DE8,#3897f0)',
                                       color: 'white',
                                       fontSize: '1.0625rem',
                                       fontWeight: 700,
                                       justifyContent: 'center',
                                       gap: '0.5rem',
-                                      boxShadow: '0 2px 12px rgba(99,102,241,0.22)',
+                                      boxShadow: '0 2px 12px rgba(56,151,240,0.22)',
                                       border: 'none',
                                       borderRadius: '14px',
                                     }}
@@ -769,7 +769,7 @@ export default function NotificationsClient({ approvals, currentUserId }: Props)
                               {isEditing && (
                                 <>
                                   <motion.button
-                                    whileHover={{ scale: 1.01, boxShadow: '0 6px 24px rgba(99,102,241,0.4)' }}
+                                    whileHover={{ scale: 1.01, boxShadow: '0 6px 24px rgba(56,151,240,0.4)' }}
                                     whileTap={{ scale: 0.98 }}
                                     transition={BTN_SPRING}
                                     onClick={() => handleRejectedAction(txn.id, 'edit')}
@@ -778,7 +778,7 @@ export default function NotificationsClient({ approvals, currentUserId }: Props)
                                     style={{
                                       width: '100%',
                                       height: 'clamp(52px, 8vw, 60px)',
-                                      background: 'linear-gradient(135deg,#4f46e5,#6366f1)',
+                                      background: 'linear-gradient(135deg,#065DE8,#3897f0)',
                                       color: 'white',
                                       fontSize: '1.0625rem',
                                       fontWeight: 700,

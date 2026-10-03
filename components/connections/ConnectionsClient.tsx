@@ -60,7 +60,7 @@ type ContactFormState =
   | { kind: 'success'; message: string };
 
 const GRADIENT_PAIRS = [
-  ['#6366f1', '#8b5cf6'],
+  ['#065DE8', '#3897f0'],
   ['#10b981', '#059669'],
   ['#f59e0b', '#d97706'],
   ['#3b82f6', '#2563eb'],
@@ -537,7 +537,7 @@ export default function ConnectionsClient({
                             width: 40,
                             height: 40,
                             borderRadius: '12px',
-                            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                            background: 'linear-gradient(135deg, #065DE8, #3897f0)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -1051,9 +1051,9 @@ export default function ConnectionsClient({
           All Connections
           <span
             style={{
-              background: 'rgba(99,102,241,0.12)',
+              background: 'rgba(56,151,240,0.12)',
               color: 'var(--accent-primary)',
-              border: '1px solid rgba(99,102,241,0.25)',
+              border: '1px solid rgba(56,151,240,0.25)',
               borderRadius: '9999px',
               fontSize: '0.6875rem',
               fontWeight: 700,

@@ -13,8 +13,8 @@ import { z } from 'zod';
 import { upgradePersonalContactsForPhone } from './connection.actions';
 
 const loginSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
+  identifier: z.string().min(1, 'Username or phone is required'),
+  password: z.string().min(1, 'Password is required'),
   role: z.enum(['user', 'admin']).default('user'),
 });
 
@@ -28,44 +28,79 @@ export async function loginAction(
   prevState: AuthState,
   formData: FormData
 ): Promise<AuthState> {
+  const rawIdentifier = (formData.get('identifier') ?? formData.get('username') ?? '') as string;
+  const rawPassword = (formData.get('password') ?? '') as string;
+  const rawRole = (formData.get('role') ?? 'user') as string;
+
   const parsed = loginSchema.safeParse({
-    username: formData.get('username'),
-    password: formData.get('password'),
-    role: formData.get('role') ?? 'user',
+    identifier: rawIdentifier.trim(),
+    password: rawPassword,
+    role: rawRole,
   });
 
   if (!parsed.success) {
-    return { error: 'Invalid credentials format' };
+    return { error: 'Please enter your username/mobile and password.' };
   }
 
-  const { username, password, role } = parsed.data;
+  const { identifier, password, role } = parsed.data;
 
-  // ── Admin login ──────────────────────────────────────────────
-  if (role === 'admin') {
-    const adminUsername = process.env.ADMIN_USERNAME;
-    const adminPassword = process.env.ADMIN_PASSWORD;
+  // ── Check if credentials match Admin ─────────────────────────
+  const adminUsername = process.env.ADMIN_USERNAME;
+  const adminPassword = process.env.ADMIN_PASSWORD;
 
-    if (!adminUsername || !adminPassword) {
-      return { error: 'Admin credentials not configured' };
+  const cleanIdentifier = identifier.trim().replace(/^@+/, '');
+
+  if (
+    adminUsername &&
+    adminPassword &&
+    cleanIdentifier.toLowerCase() === adminUsername.trim().replace(/^@+/, '').toLowerCase()
+  ) {
+    if (password === adminPassword) {
+      await createAdminSession();
+      redirect('/admin');
+    } else {
+      return { error: 'Invalid username/mobile or password' };
     }
-
-    if (username !== adminUsername || password !== adminPassword) {
-      return { error: 'Invalid admin credentials' };
-    }
-
-    await createAdminSession();
-    redirect('/admin');
   }
 
-  // ── User login ───────────────────────────────────────────────
-  const { data: user, error } = await supabaseAdmin
+  // ── User login (by username or phone) ────────────────────────
+  // 1. Try finding user by username (case-insensitive, without @)
+  let { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, username, name, password_hash, is_active')
-    .eq('username', username.toLowerCase().trim())
-    .single();
+    .select('id, username, name, password_hash, is_active, phone')
+    .eq('username', cleanIdentifier.toLowerCase())
+    .maybeSingle();
 
-  if (error || !user) {
-    return { error: 'Invalid username or password' };
+  // 2. If not found by username, try finding user by phone
+  if (!user) {
+    const digitsOnly = cleanIdentifier.replace(/\D/g, '');
+
+    // Exact phone match
+    const { data: exactPhoneUser } = await supabaseAdmin
+      .from('users')
+      .select('id, username, name, password_hash, is_active, phone')
+      .eq('phone', cleanIdentifier)
+      .maybeSingle();
+
+    if (exactPhoneUser) {
+      user = exactPhoneUser;
+    } else if (digitsOnly.length >= 10) {
+      // Match 10-digit mobile or suffix
+      const last10 = digitsOnly.slice(-10);
+      const { data: suffixUser } = await supabaseAdmin
+        .from('users')
+        .select('id, username, name, password_hash, is_active, phone')
+        .or(`phone.eq.${last10},phone.eq.+91${last10},phone.ilike.%${last10}`)
+        .maybeSingle();
+
+      if (suffixUser) {
+        user = suffixUser;
+      }
+    }
+  }
+
+  if (!user) {
+    return { error: 'Invalid username/mobile or password' };
   }
 
   if (!user.is_active) {
@@ -74,10 +109,108 @@ export async function loginAction(
 
   const passwordMatch = await bcrypt.compare(password, user.password_hash);
   if (!passwordMatch) {
-    return { error: 'Invalid username or password' };
+    return { error: 'Invalid username/mobile or password' };
   }
 
   await createUserSession(user.id);
+  redirect('/dashboard');
+}
+
+// ─── Sign Up (Public Registration) ──────────────────────────
+const signUpSchema = z.object({
+  username: z
+    .string()
+    .transform((val) => val.trim().replace(/^@+/, '').toLowerCase())
+    .refine((val) => val.length >= 3, 'Username must be at least 3 characters')
+    .refine((val) => val.length <= 30, 'Username must be at most 30 characters')
+    .refine((val) => /^[a-z0-9]+$/.test(val), 'Username can only contain lowercase letters and numbers'),
+  phone: z
+    .string()
+    .transform((val) => val.replace(/\D/g, ''))
+    .refine((val) => val.length >= 10, 'Please enter a valid 10-digit mobile number')
+    .transform((val) => val.slice(-10)),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .refine((val) => /[a-zA-Z]/.test(val), 'Password must contain at least one letter')
+    .refine((val) => /[0-9]/.test(val), 'Password must contain at least one number'),
+  confirm_password: z.string().min(1, 'Confirm password is required'),
+});
+
+export async function signUpAction(
+  prevState: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const parsed = signUpSchema.safeParse({
+    username: formData.get('username'),
+    phone: formData.get('phone'),
+    password: formData.get('password'),
+    confirm_password: formData.get('confirm_password'),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Validation failed' };
+  }
+
+  const { username, phone, password, confirm_password } = parsed.data;
+
+  if (password !== confirm_password) {
+    return { error: 'Passwords do not match' };
+  }
+
+  // 1. Check if username exists
+  const { data: existingUser } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .eq('username', username)
+    .maybeSingle();
+
+  if (existingUser) {
+    return { error: 'Username is already taken' };
+  }
+
+  // 2. Check if phone number already registered (match exact 10 digits or +91 format)
+  const { data: existingPhone } = await supabaseAdmin
+    .from('users')
+    .select('id')
+    .or(`phone.eq.${phone},phone.eq.+91${phone},phone.ilike.%${phone}`)
+    .maybeSingle();
+
+  if (existingPhone) {
+    return { error: 'Mobile number is already registered. Please sign in.' };
+  }
+
+  // 3. Hash password and insert user
+  const password_hash = await bcrypt.hash(password, 12);
+
+  const { data: newUser, error: insertError } = await supabaseAdmin
+    .from('users')
+    .insert({
+      username,
+      name: username,
+      password_hash,
+      phone,
+      is_active: true,
+      is_admin: false,
+    })
+    .select('id, username')
+    .single();
+
+  if (insertError || !newUser) {
+    console.error('Sign up error in Supabase:', insertError);
+    return { error: insertError?.message || 'Failed to create account. Please try again.' };
+  }
+
+  // 4. Upgrade any personal contacts saved by other users for this phone number
+  try {
+    await upgradePersonalContactsForPhone(phone, newUser.id);
+    await upgradePersonalContactsForPhone(`+91${phone}`, newUser.id);
+  } catch (err) {
+    console.warn('Failed to upgrade contacts during signup:', err);
+  }
+
+  // 5. Establish session & redirect to dashboard
+  await createUserSession(newUser.id);
   redirect('/dashboard');
 }
 

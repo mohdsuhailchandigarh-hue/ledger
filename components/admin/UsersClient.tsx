@@ -241,7 +241,7 @@ export default function UsersClient({ users }: Props) {
                   >
                     <td style={{ padding: '0.875rem 1.25rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: '9px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '9px', background: 'linear-gradient(135deg, #065DE8, #3897f0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'white', flexShrink: 0 }}>
                           {user.name.charAt(0).toUpperCase()}
                         </div>
                         <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -325,7 +325,7 @@ export default function UsersClient({ users }: Props) {
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: '10px', background: 'linear-gradient(135deg, #065DE8, #3897f0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem', fontWeight: 700, color: 'white', flexShrink: 0 }}>
                       {user.name.charAt(0).toUpperCase()}
                     </div>
                     <div style={{ minWidth: 0 }}>

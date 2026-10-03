@@ -59,7 +59,7 @@ export default async function AdminLedgersPage() {
                     >
                       <td style={{ padding: '0.875rem 1.25rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <div style={{ width: 30, height: 30, borderRadius: '8px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'white' }}>
+                          <div style={{ width: 30, height: 30, borderRadius: '8px', background: 'linear-gradient(135deg, #065DE8, #3897f0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'white' }}>
                             {ledger.user_a?.name?.charAt(0).toUpperCase()}
                           </div>
                           <div>
@@ -110,7 +110,7 @@ export default async function AdminLedgersPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', flex: 1 }}>
                       {/* Party A */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '7px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: '7px', background: 'linear-gradient(135deg, #065DE8, #3897f0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700, color: 'white', flexShrink: 0 }}>
                           {ledger.user_a?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div style={{ minWidth: 0 }}>

@@ -28,18 +28,12 @@ export default function BalanceCard({
   const isZero = netPosition === 0;
 
   // Colors & visual theme based on net state
-  const accentColor = isPositive ? '#10b981' : isNegative ? '#f43f5e' : '#818cf8';
+  const accentColor = isPositive ? '#10b981' : isNegative ? '#f43f5e' : '#3897f0';
   const accentBorder = isPositive
     ? 'rgba(16, 185, 129, 0.22)'
     : isNegative
     ? 'rgba(244, 63, 94, 0.22)'
-    : 'rgba(99, 102, 241, 0.22)';
-  const ambientGlow = isPositive
-    ? 'radial-gradient(ellipse at 85% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 65%)'
-    : isNegative
-    ? 'radial-gradient(ellipse at 85% 0%, rgba(244, 63, 94, 0.12) 0%, transparent 65%)'
-    : 'radial-gradient(ellipse at 85% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 65%)';
-
+    : 'rgba(56, 151, 240, 0.22)';
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -50,21 +44,12 @@ export default function BalanceCard({
         position: 'relative',
         overflow: 'hidden',
         borderRadius: '16px',
-        background: 'linear-gradient(135deg, rgba(17, 18, 23, 0.95) 0%, rgba(13, 14, 18, 0.98) 100%)',
+        background: 'var(--bg-surface)',
         border: `1px solid ${accentBorder}`,
-        boxShadow: `0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 40px -10px ${accentColor}25, inset 0 1px 0 rgba(255, 255, 255, 0.05)`,
+        boxShadow: 'var(--shadow-sm)',
         padding: '0.875rem 1rem',
       }}
     >
-      {/* Background ambient lighting */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: ambientGlow,
-          pointerEvents: 'none',
-        }}
-      />
 
       <div style={{ position: 'relative', zIndex: 1 }} className="balance-content-wrapper">
         {/* Top: Net Position Section */}
@@ -107,7 +92,7 @@ export default function BalanceCard({
                     ? 'rgba(16, 185, 129, 0.12)'
                     : isNegative
                     ? 'rgba(244, 63, 94, 0.12)'
-                    : 'rgba(99, 102, 241, 0.12)',
+                    : 'rgba(56, 151, 240, 0.12)',
                   border: `1px solid ${accentBorder}`,
                   color: accentColor,
                 }}

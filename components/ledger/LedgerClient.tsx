@@ -118,14 +118,11 @@ export default function LedgerClient({
       <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <div
+          className="apple-glass-bar"
           style={{
             position: 'sticky',
             top: 0,
             zIndex: 30,
-            background: 'rgba(6,6,8,0.85)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            borderBottom: '1px solid var(--border-subtle)',
             padding: '0 1.5rem',
           }}
         >
@@ -187,7 +184,7 @@ export default function LedgerClient({
                   width: 38,
                   height: 38,
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  background: 'linear-gradient(135deg, #065DE8, #3897f0)',
                   border: '1px solid rgba(255, 255, 255, 0.12)',
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
                   display: 'flex',
@@ -841,13 +838,13 @@ export default function LedgerClient({
           width: 54,
           height: 54,
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+          background: 'linear-gradient(135deg, #065DE8 0%, #3897f0 100%)',
           border: '1px solid rgba(255, 255, 255, 0.22)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          boxShadow: '0 8px 24px -2px rgba(99, 102, 241, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3)',
+          boxShadow: '0 8px 24px -2px rgba(56, 151, 240, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3)',
           zIndex: 40,
           color: 'white',
         }}

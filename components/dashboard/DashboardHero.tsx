@@ -33,8 +33,8 @@ export default function DashboardHero({
   // Primary accent colors based on financial state
   // Negative (Owes money) = Seductive Crimson/Rose
   // Positive (Owed money) = Electric Emerald
-  // Zero = Sophisticated Indigo
-  const accentColor = isPositive ? '#10b981' : isNegative ? '#f43f5e' : '#818cf8';
+  // Zero = Instagram Blue
+  const accentColor = isPositive ? '#10b981' : isNegative ? '#f43f5e' : '#3897f0';
 
   return (
     <div
@@ -45,34 +45,6 @@ export default function DashboardHero({
         marginBottom: '1rem',
       }}
     >
-      {/* ─── True Infinite Ambient Atmosphere (Zero Cutting Edges, Full-Bleed Edge-to-Edge) ─── */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '-1rem',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '100vw',
-          height: 'calc(100% + 1rem)',
-          pointerEvents: 'none',
-          zIndex: 0,
-          overflow: 'hidden',
-        }}
-      >
-        {/* Clean subtle ambient radial wash behind Net Position */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: isPositive
-              ? 'radial-gradient(ellipse 90% 65% at 50% 32%, rgba(16, 185, 129, 0.24) 0%, rgba(16, 185, 129, 0.08) 35%, rgba(16, 185, 129, 0.01) 65%, transparent 100%)'
-              : isNegative
-              ? 'radial-gradient(ellipse 90% 65% at 50% 32%, rgba(244, 63, 94, 0.24) 0%, rgba(244, 63, 94, 0.08) 35%, rgba(244, 63, 94, 0.01) 65%, transparent 100%)'
-              : 'radial-gradient(ellipse 90% 65% at 50% 32%, rgba(99, 102, 241, 0.22) 0%, rgba(99, 102, 241, 0.07) 35%, rgba(99, 102, 241, 0.01) 65%, transparent 100%)',
-          }}
-        />
-      </div>
-
       {/* ─── Foreground Content ─────────────────────────────── */}
       <div style={{ position: 'relative', zIndex: 2 }}>
         {/* ─── Hero Net Balance Section ─────────────────────────── */}
@@ -106,6 +78,7 @@ export default function DashboardHero({
               Net Position
             </span>
             <div
+              className="apple-glass-pill"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -120,12 +93,10 @@ export default function DashboardHero({
                   ? 'rgba(16, 185, 129, 0.12)'
                   : isNegative
                   ? 'rgba(244, 63, 94, 0.12)'
-                  : 'rgba(99, 102, 241, 0.12)',
-                border: `1px solid ${accentColor}33`,
+                  : 'rgba(56, 151, 240, 0.12)',
+                border: `0.5px solid ${accentColor}33`,
                 color: accentColor,
-                boxShadow: `0 2px 12px ${accentColor}22`,
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: 'none',
               }}
             >
               <span
@@ -135,7 +106,7 @@ export default function DashboardHero({
                   borderRadius: '50%',
                   background: accentColor,
                   display: 'inline-block',
-                  boxShadow: `0 0 8px ${accentColor}`,
+                  boxShadow: 'none',
                 }}
               />
               {isPositive && 'You Will Get'}
@@ -144,7 +115,7 @@ export default function DashboardHero({
             </div>
           </div>
 
-          {/* Amount Display with Glowing Luminescence */}
+          {/* Amount Display — Clean, Crisp Number (No Glow) */}
           <div
             style={{
               display: 'flex',
@@ -174,7 +145,7 @@ export default function DashboardHero({
                 color: accentColor,
                 letterSpacing: '-0.04em',
                 lineHeight: 1,
-                textShadow: `0 0 35px ${accentColor}44, 0 0 70px ${accentColor}22`,
+                textShadow: 'none',
               }}
               formatFn={formatINR}
             />
@@ -195,8 +166,9 @@ export default function DashboardHero({
                 fontSize: '0.625rem',
                 fontWeight: 600,
                 color: 'var(--warning)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
+                backdropFilter: 'blur(20px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                boxShadow: 'none',
               }}
             >
               <span
@@ -213,7 +185,7 @@ export default function DashboardHero({
           )}
         </div>
 
-        {/* ─── Breakdown: Floating Frosted Glass Pills (No hard squaring borders) ─── */}
+        {/* ─── Breakdown: Clean Solid Surface Cards (No Glow / Ambient Bleed) ─── */}
         <div
           style={{
             display: 'grid',
@@ -223,17 +195,15 @@ export default function DashboardHero({
             margin: '0 auto',
           }}
         >
-          {/* YOU WILL GET Capsule — Self-illuminating Emerald with Radiant Ambient Blending */}
+          {/* YOU WILL GET Card */}
           <div
             style={{
               position: 'relative',
               borderRadius: '16px',
               padding: '0.8125rem 1rem',
-              // Rich self-emitting dark emerald base: ~94% opaque base prevents background green/red washout
-              background: 'linear-gradient(145deg, rgba(16, 185, 129, 0.18) 0%, rgba(16, 185, 129, 0.06) 45%, rgba(6, 22, 16, 0.94) 100%)',
-              border: '1px solid rgba(16, 185, 129, 0.32)',
-              // Radiant emerald ambient shadow that bleeds outward into the surrounding atmosphere
-              boxShadow: '0 12px 28px -4px rgba(16, 185, 129, 0.28), 0 4px 12px rgba(0, 0, 0, 0.45), inset 0 1px 1px 0 rgba(16, 185, 129, 0.35)',
+              background: 'var(--bg-surface)',
+              border: '1px solid rgba(16, 185, 129, 0.22)',
+              boxShadow: 'var(--shadow-sm)',
               display: 'flex',
               flexDirection: 'column',
               gap: '4px',
@@ -246,11 +216,11 @@ export default function DashboardHero({
                   width: 20,
                   height: 20,
                   borderRadius: '50%',
-                  background: 'rgba(16, 185, 129, 0.2)',
+                  background: 'rgba(16, 185, 129, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 0 10px rgba(16, 185, 129, 0.3)',
+                  boxShadow: 'none',
                 }}
               >
                 <ArrowUpRight size={13} color="#10b981" strokeWidth={2.6} />
@@ -288,24 +258,22 @@ export default function DashboardHero({
                   fontWeight: 700,
                   color: '#10b981',
                   letterSpacing: '-0.02em',
-                  textShadow: '0 0 16px rgba(16, 185, 129, 0.35)',
+                  textShadow: 'none',
                 }}
                 formatFn={formatINR}
               />
             </div>
           </div>
 
-          {/* YOU WILL GIVE Capsule — Self-illuminating Crimson/Rose with Radiant Ambient Blending */}
+          {/* YOU WILL GIVE Card */}
           <div
             style={{
               position: 'relative',
               borderRadius: '16px',
               padding: '0.8125rem 1rem',
-              // Rich self-emitting dark crimson base: ~94% opaque base ensures it is NEVER tinted by background green!
-              background: 'linear-gradient(145deg, rgba(244, 63, 94, 0.18) 0%, rgba(244, 63, 94, 0.06) 45%, rgba(24, 7, 12, 0.94) 100%)',
-              border: '1px solid rgba(244, 63, 94, 0.32)',
-              // Radiant crimson ambient shadow that bleeds into the background, creating a gorgeous optical color fusion!
-              boxShadow: '0 12px 28px -4px rgba(244, 63, 94, 0.28), 0 4px 12px rgba(0, 0, 0, 0.45), inset 0 1px 1px 0 rgba(244, 63, 94, 0.35)',
+              background: 'var(--bg-surface)',
+              border: '1px solid rgba(244, 63, 94, 0.22)',
+              boxShadow: 'var(--shadow-sm)',
               display: 'flex',
               flexDirection: 'column',
               gap: '4px',
@@ -318,11 +286,11 @@ export default function DashboardHero({
                   width: 20,
                   height: 20,
                   borderRadius: '50%',
-                  background: 'rgba(244, 63, 94, 0.2)',
+                  background: 'rgba(244, 63, 94, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 0 10px rgba(244, 63, 94, 0.3)',
+                  boxShadow: 'none',
                 }}
               >
                 <ArrowDownRight size={13} color="#f43f5e" strokeWidth={2.6} />
@@ -360,7 +328,7 @@ export default function DashboardHero({
                   fontWeight: 700,
                   color: '#f43f5e',
                   letterSpacing: '-0.02em',
-                  textShadow: '0 0 16px rgba(244, 63, 94, 0.35)',
+                  textShadow: 'none',
                 }}
                 formatFn={formatINR}
               />

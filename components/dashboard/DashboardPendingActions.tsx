@@ -34,11 +34,11 @@ const BTN_SPRING = { type: 'spring' as const, stiffness: 420, damping: 26 };
 
 function avatarGradient(name: string) {
   const palettes = [
-    'linear-gradient(135deg,#6366f1,#8b5cf6)',
-    'linear-gradient(135deg,#0ea5e9,#6366f1)',
+    'linear-gradient(135deg,#065DE8,#3897f0)',
+    'linear-gradient(135deg,#0ea5e9,#065DE8)',
     'linear-gradient(135deg,#f59e0b,#ef4444)',
     'linear-gradient(135deg,#10b981,#0ea5e9)',
-    'linear-gradient(135deg,#ec4899,#8b5cf6)',
+    'linear-gradient(135deg,#ec4899,#3897f0)',
     'linear-gradient(135deg,#f97316,#ef4444)',
   ];
   return palettes[name.charCodeAt(0) % palettes.length];
@@ -551,7 +551,7 @@ export default function DashboardPendingActions({
                                       <Edit2 size={12} /> Edit
                                     </motion.button>
                                     <motion.button
-                                      whileHover={{ scale: 1.02, boxShadow: '0 4px 18px rgba(99,102,241,0.3)' }}
+                                      whileHover={{ scale: 1.02, boxShadow: '0 4px 18px rgba(56,151,240,0.3)' }}
                                       whileTap={{ scale: 0.96 }}
                                       transition={BTN_SPRING}
                                       onClick={() => handleRejectedAction(txn.id, 're_request')}
@@ -559,13 +559,13 @@ export default function DashboardPendingActions({
                                       className="btn"
                                       style={{
                                         flex: 1.4,
-                                        background: 'linear-gradient(135deg,#4f46e5,#6366f1)',
+                                        background: 'linear-gradient(135deg,#065DE8,#3897f0)',
                                         color: 'white',
                                         fontSize: '0.75rem',
                                         fontWeight: 700,
                                         justifyContent: 'center',
                                         gap: '0.25rem',
-                                        boxShadow: '0 2px 8px rgba(99,102,241,0.18)',
+                                        boxShadow: '0 2px 8px rgba(56,151,240,0.18)',
                                         border: 'none',
                                         padding: '0.5rem',
                                       }}
@@ -590,7 +590,7 @@ export default function DashboardPendingActions({
                                       Cancel
                                     </motion.button>
                                     <motion.button
-                                      whileHover={{ scale: 1.02, boxShadow: '0 4px 18px rgba(99,102,241,0.3)' }}
+                                      whileHover={{ scale: 1.02, boxShadow: '0 4px 18px rgba(56,151,240,0.3)' }}
                                       whileTap={{ scale: 0.96 }}
                                       transition={BTN_SPRING}
                                       onClick={() => handleRejectedAction(txn.id, 'edit')}
@@ -598,7 +598,7 @@ export default function DashboardPendingActions({
                                       className="btn"
                                       style={{
                                         flex: 1.4,
-                                        background: 'linear-gradient(135deg,#4f46e5,#6366f1)',
+                                        background: 'linear-gradient(135deg,#065DE8,#3897f0)',
                                         color: 'white',
                                         fontSize: '0.8125rem',
                                         fontWeight: 700,

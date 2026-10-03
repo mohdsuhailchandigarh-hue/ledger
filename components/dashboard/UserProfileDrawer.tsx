@@ -306,9 +306,9 @@ export default function UserProfileDrawer({
               style={{
                 position: 'fixed',
                 inset: 0,
-                background: 'rgba(0, 0, 0, 0.72)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
+                background: 'rgba(0, 0, 0, 0.45)',
+                backdropFilter: 'blur(30px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(30px) saturate(180%)',
                 zIndex: 100,
               }}
             />
@@ -343,7 +343,7 @@ export default function UserProfileDrawer({
                 borderRight: '1px solid rgba(255, 255, 255, 0.05)',
                 boxShadow: displayImage
                   ? `0 -24px 64px rgba(0, 0, 0, 0.85), 0 0 55px ${activePalette.subtleTint}`
-                  : '0 -24px 64px rgba(0, 0, 0, 0.8), 0 0 50px rgba(99, 102, 241, 0.12)',
+                  : '0 -24px 64px rgba(0, 0, 0, 0.8), 0 0 50px rgba(56, 151, 240, 0.12)',
                 borderTopLeftRadius: '28px',
                 borderTopRightRadius: '28px',
                 overflow: 'visible',
@@ -450,7 +450,7 @@ export default function UserProfileDrawer({
                     width: 150,
                     height: 150,
                     borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(99, 102, 241, 0.12) 55%, transparent 75%)',
+                    background: 'radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(56, 151, 240, 0.12) 55%, transparent 75%)',
                     filter: 'blur(18px)',
                     pointerEvents: 'none',
                     zIndex: 0,
@@ -604,7 +604,7 @@ export default function UserProfileDrawer({
                         transition: 'stroke-dashoffset 0.16s ease-out, stroke 0.25s ease',
                         filter: uploadProgress >= 100
                           ? 'drop-shadow(0 0 8px rgba(16, 185, 129, 0.9))'
-                          : `drop-shadow(0 0 7px ${activePalette.dominant || '#6366f1'})`,
+                          : `drop-shadow(0 0 7px ${activePalette.dominant || '#3897f0'})`,
                       }}
                     />
                   )}
@@ -628,7 +628,7 @@ export default function UserProfileDrawer({
                     border: isUploading ? '3px solid transparent' : '3.5px solid rgba(255, 255, 255, 0.9)',
                     boxShadow: displayImage
                       ? `0 18px 44px -4px ${activePalette.accentGlow}, 0 0 35px ${activePalette.subtleTint}, 0 8px 24px rgba(0, 0, 0, 0.7), inset 0 2px 4px rgba(255, 255, 255, 0.5)`
-                      : '0 14px 34px -4px rgba(99, 102, 241, 0.4), 0 6px 20px rgba(0, 0, 0, 0.7), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
+                      : '0 14px 34px -4px rgba(56, 151, 240, 0.4), 0 6px 20px rgba(0, 0, 0, 0.7), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
                     background: '#090d16',
                     overflow: 'hidden',
                     cursor: isUploading ? 'wait' : 'pointer',
@@ -718,8 +718,8 @@ export default function UserProfileDrawer({
                       background: displayImage
                         ? (activePalette.isBrightMonochrome ? 'linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.08))' : `linear-gradient(135deg, ${activePalette.dominant}, rgba(15,23,42,0.9))`)
                         : 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.08))',
-                      backdropFilter: 'blur(12px)',
-                      WebkitBackdropFilter: 'blur(12px)',
+                      backdropFilter: 'blur(20px) saturate(180%)',
+                      WebkitBackdropFilter: 'blur(20px) saturate(180%)',
                       border: displayImage && activePalette.borderTint ? `1.5px solid ${activePalette.borderTint}` : '1.5px solid rgba(255, 255, 255, 0.3)',
                       boxShadow: displayImage
                         ? `0 4px 14px ${activePalette.accentGlow}`
@@ -869,8 +869,8 @@ export default function UserProfileDrawer({
                     fontWeight: 600,
                     cursor: 'pointer',
                     boxShadow: displayImage ? `0 2px 14px ${activePalette.subtleTint}` : 'none',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
+                    backdropFilter: 'blur(20px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
                     transition: 'all 0.25s ease',
                   }}
                 >
@@ -1109,9 +1109,9 @@ export default function UserProfileDrawer({
               style={{
                 position: 'fixed',
                 inset: 0,
-                background: 'rgba(0, 0, 0, 0.72)',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
+                background: 'rgba(0, 0, 0, 0.45)',
+                backdropFilter: 'blur(30px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(30px) saturate(180%)',
                 zIndex: 110,
               }}
             />
@@ -1138,15 +1138,15 @@ export default function UserProfileDrawer({
               {/* Grouped Actions List */}
               <div
                 style={{
-                  background: 'rgba(26, 28, 38, 0.92)',
-                  backdropFilter: 'blur(32px) saturate(190%)',
-                  WebkitBackdropFilter: 'blur(32px) saturate(190%)',
+                  background: 'rgba(26, 28, 38, 0.88)',
+                  backdropFilter: 'blur(60px) saturate(200%)',
+                  WebkitBackdropFilter: 'blur(60px) saturate(200%)',
                   borderRadius: '16px',
                   border: '1px solid rgba(255, 255, 255, 0.12)',
                   overflow: 'hidden',
                   boxShadow: displayImage
                     ? `0 24px 60px rgba(0, 0, 0, 0.8), 0 0 35px ${activePalette.subtleTint}`
-                    : '0 24px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.1)',
+                    : '0 24px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(56, 151, 240, 0.1)',
                 }}
               >
                 {/* Header Title */}
@@ -1263,9 +1263,9 @@ export default function UserProfileDrawer({
                   width: '100%',
                   padding: '1rem 1.25rem',
                   borderRadius: '16px',
-                  background: 'rgba(32, 35, 45, 0.95)',
-                  backdropFilter: 'blur(32px) saturate(190%)',
-                  WebkitBackdropFilter: 'blur(32px) saturate(190%)',
+                  background: 'rgba(32, 35, 45, 0.88)',
+                  backdropFilter: 'blur(60px) saturate(200%)',
+                  WebkitBackdropFilter: 'blur(60px) saturate(200%)',
                   border: '1px solid rgba(255, 255, 255, 0.12)',
                   color: '#ffffff',
                   fontSize: '1rem',

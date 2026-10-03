@@ -443,8 +443,8 @@ export default function LedgerTimeline({
                             gap: '0.375rem',
                             padding: '0.3rem 0.75rem',
                             borderRadius: '9999px',
-                            background: 'rgba(99,102,241,0.1)',
-                            border: '1px solid rgba(99,102,241,0.25)',
+                            background: 'rgba(56,151,240,0.1)',
+                            border: '1px solid rgba(56,151,240,0.25)',
                             fontSize: '0.75rem',
                             fontWeight: 600,
                             color: 'var(--accent-primary)',
@@ -686,8 +686,8 @@ export default function LedgerTimeline({
 
       <style>{`
         @keyframes pulse-border {
-          0%, 100% { border-color: rgba(99,102,241,0.25); }
-          50% { border-color: rgba(99,102,241,0.55); }
+          0%, 100% { border-color: rgba(56,151,240,0.25); }
+          50% { border-color: rgba(56,151,240,0.55); }
         }
       `}</style>
     </>

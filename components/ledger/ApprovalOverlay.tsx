@@ -25,8 +25,8 @@ const BTN_SPRING = { type: 'spring' as const, stiffness: 420, damping: 26 };
 
 function avatarGradient(name: string) {
   const palettes = [
-    'linear-gradient(135deg,#6366f1,#8b5cf6)',
-    'linear-gradient(135deg,#0ea5e9,#6366f1)',
+    'linear-gradient(135deg,#065DE8,#3897f0)',
+    'linear-gradient(135deg,#0ea5e9,#065DE8)',
     'linear-gradient(135deg,#f59e0b,#ef4444)',
     'linear-gradient(135deg,#10b981,#0ea5e9)',
     'linear-gradient(135deg,#ec4899,#8b5cf6)',
@@ -72,9 +72,9 @@ export default function ApprovalOverlay({ transaction, currentUserId, onClose }:
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.85)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
+          background: 'rgba(0,0,0,0.45)',
+          backdropFilter: 'blur(30px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(30px) saturate(180%)',
           zIndex: 70,
           display: 'flex',
           alignItems: 'center',

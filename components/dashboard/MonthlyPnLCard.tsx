@@ -20,27 +20,19 @@ export default function MonthlyPnLCard({ monthlyGet, monthlyGive, monthLabel }: 
   const isBreakEven = net === 0;
 
   // ── Palette ────────────────────────────────────────────────────
-  const accent   = isProfit ? '#10b981' : isLoss ? '#f43f5e' : '#6366f1';
+  const accent   = isProfit ? '#10b981' : isLoss ? '#f43f5e' : '#3897f0';
   const accentDim = isProfit
     ? 'rgba(16,185,129,0.12)'
     : isLoss
     ? 'rgba(244,63,94,0.12)'
-    : 'rgba(99,102,241,0.12)';
+    : 'rgba(56,151,240,0.12)';
   const accentBorder = isProfit
     ? 'rgba(16,185,129,0.25)'
     : isLoss
     ? 'rgba(244,63,94,0.25)'
-    : 'rgba(99,102,241,0.25)';
-  const glow = isProfit
-    ? '0 0 80px -10px rgba(16,185,129,0.3), inset 0 1px 0 rgba(255,255,255,0.05)'
-    : isLoss
-    ? '0 0 80px -10px rgba(244,63,94,0.3), inset 0 1px 0 rgba(255,255,255,0.05)'
-    : '0 0 80px -10px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.05)';
-  const bg = isProfit
-    ? 'linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(16,185,129,0.04) 60%, rgba(6,182,212,0.03) 100%)'
-    : isLoss
-    ? 'linear-gradient(135deg, rgba(244,63,94,0.1) 0%, rgba(244,63,94,0.04) 60%, rgba(139,92,246,0.03) 100%)'
-    : 'linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(99,102,241,0.04) 60%, rgba(6,182,212,0.03) 100%)';
+    : 'rgba(56,151,240,0.25)';
+  const glow = 'var(--shadow-sm)';
+  const bg = 'var(--bg-surface)';
 
   const StatusIcon = isProfit ? TrendingUp : isLoss ? TrendingDown : Minus;
   const statusLabel = isProfit ? 'Profit' : isLoss ? 'Loss' : 'Break Even';
@@ -63,32 +55,6 @@ export default function MonthlyPnLCard({ monthlyGet, monthlyGive, monthLabel }: 
         marginBottom: '1.5rem',
       }}
     >
-      {/* Floating glow orb */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '-60%',
-          right: '-5%',
-          width: 320,
-          height: 320,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${accentDim} 0%, transparent 68%)`,
-          pointerEvents: 'none',
-        }}
-      />
-      {/* Second subtle orb bottom-left */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '-40%',
-          left: '-5%',
-          width: 200,
-          height: 200,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${accentDim} 0%, transparent 70%)`,
-          pointerEvents: 'none',
-        }}
-      />
 
       <div style={{ position: 'relative' }}>
         {/* Top row: month label + status badge */}

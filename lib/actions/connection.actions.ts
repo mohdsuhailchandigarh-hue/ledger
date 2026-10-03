@@ -25,15 +25,59 @@ export async function checkPhoneForContactAction(phone: string) {
   const currentUser = await getUserFromSession();
   if (!currentUser) return { error: 'Unauthorized' };
 
+  const cleanDigits = phone.replace(/\D/g, '').slice(-10);
+  if (cleanDigits.length < 10) {
+    return { error: 'Invalid phone number' };
+  }
+
+  // Prevent connecting with oneself
+  const { data: myData } = await supabaseAdmin
+    .from('users')
+    .select('phone')
+    .eq('id', currentUser.id)
+    .maybeSingle();
+
+  if (myData?.phone && myData.phone.replace(/\D/g, '').slice(-10) === cleanDigits) {
+    return { isSelf: true, error: 'You cannot add your own phone number' };
+  }
+
+  // Find user by phone in database (matching exact 10 digits or with +91)
   const { data: existingUser } = await supabaseAdmin
     .from('users')
-    .select('id, name')
-    .eq('phone', phone)
-    .single();
+    .select('id, username, name, avatar_url, phone')
+    .or(`phone.eq.${cleanDigits},phone.eq.+91${cleanDigits},phone.ilike.%${cleanDigits}`)
+    .limit(1)
+    .maybeSingle();
 
   if (existingUser && existingUser.id !== currentUser.id) {
-    return { existingUser };
+    // Check if already connected
+    const { data: existingConn } = await supabaseAdmin
+      .from('connections')
+      .select('id, user_a_id, user_b_id, deleted_by_a, deleted_by_b')
+      .or(`and(user_a_id.eq.${currentUser.id},user_b_id.eq.${existingUser.id}),and(user_a_id.eq.${existingUser.id},user_b_id.eq.${currentUser.id})`)
+      .maybeSingle();
+
+    const isConnected = existingConn && (
+      existingConn.user_a_id === currentUser.id ? !existingConn.deleted_by_a : !existingConn.deleted_by_b
+    );
+
+    // Check if pending request exists
+    const { data: existingReq } = await supabaseAdmin
+      .from('connection_requests')
+      .select('id, status, from_user_id')
+      .or(`and(from_user_id.eq.${currentUser.id},to_user_id.eq.${existingUser.id}),and(from_user_id.eq.${existingUser.id},to_user_id.eq.${currentUser.id})`)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    return {
+      existingUser,
+      isConnected: !!isConnected,
+      connectionId: existingConn?.id ?? null,
+      hasPendingRequest: !!existingReq,
+      isPendingFromMe: existingReq?.from_user_id === currentUser.id,
+    };
   }
+
   return { existingUser: null };
 }
 
