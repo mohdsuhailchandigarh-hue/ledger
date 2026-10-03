@@ -32,7 +32,7 @@ export default function LedgerSkeleton({
   return (
     <div
       style={{
-        minHeight: '100dvh',
+        minHeight: '100%',
         background: 'var(--bg-base)',
         color: 'var(--text-primary)',
         width: '100%',
@@ -47,33 +47,106 @@ export default function LedgerSkeleton({
           : {}),
       }}
     >
-      {/* ─── Sticky Top Header ─── */}
+      {/* ─── Sticky Top Header - Fixed seamlessly into the rounded shape top of the popup with exact dashboard CTA glass effect & blur veil ─── */}
       <div
-        className="apple-glass-bar"
         style={{
           position: 'sticky',
           top: 0,
           zIndex: 40,
-          padding: '0 1.25rem',
+          borderTopLeftRadius: '28px',
+          borderTopRightRadius: '28px',
         }}
       >
+        {/* Elastic Overscroll Dense Blur Shield — covers rubber-band pull down / scroll up above top: 0 */}
         <div
           style={{
-            maxWidth: '720px',
-            margin: '0 auto',
-            height: 64,
+            position: 'absolute',
+            top: -400,
+            height: 400,
+            left: 0,
+            right: 0,
+            background: 'var(--bg-base)',
+            backdropFilter: 'blur(60px) saturate(220%)',
+            WebkitBackdropFilter: 'blur(60px) saturate(220%)',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Progressive Blur Veil with Tint — identical to dashboard CTA veil */}
+        <div
+          className="topbar-progressive-veil"
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: -18,
+            left: 0,
+            right: 0,
+            pointerEvents: 'none',
+            borderTopLeftRadius: '28px',
+            borderTopRightRadius: '28px',
+            overflow: 'hidden',
+            zIndex: 1,
+          }}
+          aria-hidden="true"
+        >
+          <div className="veil-blur-base" />
+          <div className="veil-blur-mid" />
+          <div className="veil-blur-dense" />
+          <div className="veil-tint" />
+        </div>
+
+        {/* Glass Header Bar Container — exact same glass effect, tint, and highlights as dashboard CTA */}
+        <div
+          className="popup-glass-header"
+          data-drag-header="true"
+          style={{
+            borderTopLeftRadius: '28px',
+            borderTopRightRadius: '28px',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '1rem',
+            flexDirection: 'column',
+            zIndex: 2,
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            cursor: 'grab',
           }}
         >
+          {/* Drag Handle Bar Pill */}
+          <div
+            data-drag-handle="true"
+            style={{
+              width: 44,
+              height: 5,
+              borderRadius: 3,
+              background: 'rgba(255, 255, 255, 0.28)',
+              margin: '0.625rem auto 0.3rem',
+              flexShrink: 0,
+              touchAction: 'none',
+              cursor: 'grab',
+            }}
+          />
+
+          <div
+            style={{
+              maxWidth: '720px',
+              margin: '0 auto',
+              width: '100%',
+              height: 52,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              padding: '0 1rem 0.35rem',
+            }}
+          >
           {/* Back button + Contact profile */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.75rem',
+              gap: '0.625rem',
               minWidth: 0,
             }}
           >
@@ -85,12 +158,11 @@ export default function LedgerSkeleton({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 38,
-                  height: 38,
-                  borderRadius: '12px',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12)',
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
                   color: '#ffffff',
                   cursor: 'pointer',
                   flexShrink: 0,
@@ -102,7 +174,7 @@ export default function LedgerSkeleton({
             ) : (
               <div
                 className="skeleton"
-                style={{ width: 38, height: 38, borderRadius: '12px', flexShrink: 0 }}
+                style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0 }}
               />
             )}
 
@@ -176,6 +248,7 @@ export default function LedgerSkeleton({
                       alignItems: 'center',
                       gap: '0.375rem',
                       margin: 0,
+                      lineHeight: 1.2,
                     }}
                   >
                     {peerName}
@@ -202,6 +275,7 @@ export default function LedgerSkeleton({
                       color: 'var(--text-muted)',
                       whiteSpace: 'nowrap',
                       margin: 0,
+                      lineHeight: 1.2,
                     }}
                   >
                     {isPersonal
@@ -220,20 +294,21 @@ export default function LedgerSkeleton({
             </div>
           </div>
 
-          {/* Action button skeleton: matches delete button */}
+          {/* Action button skeleton: matches circular delete button */}
           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <div
               className="skeleton"
               style={{
-                width: 38,
-                height: 38,
-                borderRadius: '12px',
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
                 background: 'rgba(244, 63, 94, 0.08)',
                 border: '1px solid rgba(244, 63, 94, 0.18)',
               }}
             />
           </div>
         </div>
+      </div>
       </div>
 
       {/* ─── Main Content Container ─── */}

@@ -3,6 +3,7 @@ import { getUserFromSession } from '@/lib/auth/session';
 import { redirect, notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase/server';
 import LedgerClient from '@/components/ledger/LedgerClient';
+import { resolveConnectionPeerName } from '@/lib/utils/connection';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,8 +25,8 @@ export default async function LedgerPage({
   console.log('[DEBUG LedgerPage] connectionId:', connectionId, 'user:', user?.username, user?.id);
   if (!user) redirect('/login');
 
-  // Query connection details, transactions list, and net balance in parallel to eliminate sequential database latency
-  const [connectionResultRaw, transactionsResult, balanceResult] = await Promise.all([
+  // Query connection details, transactions list, net balance, and exact counts in parallel to eliminate sequential database latency
+  const [connectionResultRaw, transactionsResult, balanceResult, countResult, pendingCountResult] = await Promise.all([
     supabaseAdmin
       .from('connections')
       .select(`
@@ -52,7 +53,16 @@ export default async function LedgerPage({
       .select('net_amount')
       .eq('connection_id', connectionId)
       .eq('user_id', user.id)
-      .single()
+      .single(),
+    supabaseAdmin
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('connection_id', connectionId),
+    supabaseAdmin
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('connection_id', connectionId)
+      .eq('status', 'pending'),
   ]);
 
   let connection: any = connectionResultRaw.data;
@@ -101,9 +111,68 @@ export default async function LedgerPage({
 
   const isPersonal = conn.user_b_id === null;
   const isDisconnected = !isPersonal && ((isUserA && conn.deleted_by_b) || (isUserB && conn.deleted_by_a));
-  const peer = isPersonal
-    ? { id: 'offline', name: conn.contact_name || 'Contact', username: conn.contact_phone || 'Offline', isPersonal: true }
+  const resolvedName = resolveConnectionPeerName(conn, user.id);
+  const rawPeer = isPersonal
+    ? { id: 'offline', name: resolvedName, username: conn.contact_phone || 'Offline', phone: conn.contact_phone || '', isPersonal: true }
     : (isUserA ? conn.user_b : conn.user_a);
+  const peer = {
+    ...rawPeer,
+    name: resolvedName,
+    phone: isPersonal ? (conn.contact_phone || '') : ((isUserA ? conn.user_b?.phone : conn.user_a?.phone) || ''),
+    isPersonal,
+  };
+
+  // Check if contact_phone belongs to a registered user on the platform
+  let registeredUser: {
+    id: string;
+    name: string;
+    username: string;
+    avatar_url?: string | null;
+  } | null = null;
+  let initialRequestStatus: {
+    status: 'none' | 'pending_sent' | 'pending_received';
+    requestId?: string;
+  } | null = null;
+
+  if (isPersonal && conn.contact_phone) {
+    const cleanDigits = conn.contact_phone.replace(/\D/g, '').slice(-10);
+    if (cleanDigits.length === 10) {
+      const { data: matchedUser } = await supabaseAdmin
+        .from('users')
+        .select('id, username, name, avatar_url, phone')
+        .or(`phone.eq.${cleanDigits},phone.eq.+91${cleanDigits},phone.ilike.%${cleanDigits}`)
+        .neq('id', user.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (matchedUser) {
+        registeredUser = {
+          id: matchedUser.id,
+          name: matchedUser.name,
+          username: matchedUser.username,
+          avatar_url: matchedUser.avatar_url,
+        };
+
+        const { data: req } = await supabaseAdmin
+          .from('connection_requests')
+          .select('id, status, from_user_id, to_user_id')
+          .or(`and(from_user_id.eq.${user.id},to_user_id.eq.${matchedUser.id}),and(from_user_id.eq.${matchedUser.id},to_user_id.eq.${user.id})`)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+        if (req) {
+          initialRequestStatus = {
+            requestId: req.id,
+            status: req.from_user_id === user.id ? 'pending_sent' : 'pending_received',
+          };
+        } else {
+          initialRequestStatus = {
+            status: 'none',
+          };
+        }
+      }
+    }
+  }
 
   const transactions = transactionsResult.data ?? [];
   const netBalance = Number((balanceResult.data as any)?.net_amount ?? 0);
@@ -127,6 +196,10 @@ export default async function LedgerPage({
         netBalance={netBalance}
         isDisconnected={isDisconnected}
         initialHasMore={transactions.length === 50}
+        totalCount={countResult?.count ?? transactions.length}
+        totalPendingCount={pendingCountResult?.count ?? 0}
+        registeredUser={registeredUser}
+        initialRequestStatus={initialRequestStatus}
       />
     </div>
   );

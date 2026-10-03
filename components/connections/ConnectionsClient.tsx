@@ -11,8 +11,8 @@ import {
   updatePersonalContactAction
 } from '@/lib/actions/connection.actions';
 import { getLedgerDetailsAction } from '@/lib/actions/transaction.actions';
-import LedgerSkeleton from '@/components/ledger/LedgerSkeleton';
-import LedgerClient from '@/components/ledger/LedgerClient';
+import ConnectionLedgerModal from '@/components/ledger/ConnectionLedgerModal';
+import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import { Search, UserPlus, Check, X, Clock, Users, Link2, Phone, AlertCircle, Edit2, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -101,6 +101,8 @@ export default function ConnectionsClient({
     transactions: any[] | null;
     isDisconnected: boolean;
     hasMore?: boolean;
+    totalCount?: number;
+    totalPendingCount?: number;
   } | null>(null);
 
   const [mounted, setMounted] = useState(false);
@@ -109,23 +111,8 @@ export default function ConnectionsClient({
     setMounted(true);
   }, []);
 
-  // When ledger view is active, hide page overflow and lock body scroll
-  useEffect(() => {
-    if (activeLedger) {
-      document.body.classList.add('ledger-view-open');
-      const prevOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.classList.remove('ledger-view-open');
-        document.body.style.overflow = prevOverflow;
-      };
-    } else {
-      document.body.classList.remove('ledger-view-open');
-    }
-  }, [activeLedger]);
-
   const openLedger = useCallback(async (connId: string, peerData: any, currentBalance: number = 0) => {
-    // 1. Immediately show the in-app view with instant skeleton (0ms!)
+    // 1. Immediately show the in-app bottom sheet with instant skeleton (0ms!)
     setActiveLedger({
       connectionId: connId,
       peer: peerData,
@@ -134,12 +121,11 @@ export default function ConnectionsClient({
       isDisconnected: false,
     });
 
-    // 2. Update browser history state without full document reload so Safari never pops up its browser chrome
     if (typeof window !== 'undefined') {
-      window.history.pushState({ ledgerId: connId }, '', `/ledger/${connId}`);
+      window.history.pushState({ ledgerOpen: true }, '');
     }
 
-    // 3. Fetch full transactions via Server Action
+    // 2. Fetch full transactions via Server Action
     try {
       const res = await getLedgerDetailsAction(connId);
       if (res && !('error' in res)) {
@@ -150,6 +136,8 @@ export default function ConnectionsClient({
           transactions: res.transactions,
           isDisconnected: res.isDisconnected,
           hasMore: res.hasMore,
+          totalCount: res.totalCount,
+          totalPendingCount: res.totalPendingCount,
         });
       }
     } catch (e) {
@@ -159,21 +147,21 @@ export default function ConnectionsClient({
 
   const closeLedger = useCallback(() => {
     setActiveLedger(null);
-    if (typeof window !== 'undefined') {
-      if (window.history.state?.ledgerId) {
-        window.history.back();
-      } else {
-        window.history.replaceState(null, '', '/connections');
-      }
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    if (typeof window !== 'undefined' && window.history.state?.ledgerOpen) {
+      window.history.back();
     }
     router.refresh();
   }, [router]);
 
   useEffect(() => {
     const handlePopState = () => {
-      // If user swipes back or taps browser back button, close active ledger if open
+      // If user swipes back or taps browser back button, close active ledger popup if open
       setActiveLedger((current) => {
         if (current) {
+          document.body.style.overflow = '';
+          document.documentElement.style.overflow = '';
           router.refresh();
           return null;
         }
@@ -184,6 +172,17 @@ export default function ConnectionsClient({
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [router]);
+
+  useEffect(() => {
+    if (!activeLedger) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeLedger();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeLedger, closeLedger]);
 
   const reloadActiveLedger = useCallback(async () => {
     if (!activeLedger) return;
@@ -197,6 +196,8 @@ export default function ConnectionsClient({
           transactions: res.transactions,
           isDisconnected: res.isDisconnected,
           hasMore: res.hasMore,
+          totalCount: res.totalCount,
+          totalPendingCount: res.totalPendingCount,
         });
       }
       router.refresh();
@@ -1224,50 +1225,13 @@ export default function ConnectionsClient({
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
 
-      {/* Native In-App Full-Screen SPA Ledger View (No Safari URL bar, No bottom action buttons, Mounted to body with zIndex 99999) */}
-      {mounted && typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {activeLedger && (
-            <motion.div
-              initial={{ opacity: 0, x: '8%' }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: '8%' }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 99999,
-                background: 'var(--bg-base)',
-                overflowY: 'auto',
-                WebkitOverflowScrolling: 'touch',
-              }}
-            >
-              {activeLedger.transactions === null ? (
-                <LedgerSkeleton
-                  peerName={activeLedger.peer.name}
-                  peerAvatar={activeLedger.peer.avatar_url}
-                  peerUsername={activeLedger.peer.username}
-                  isPersonal={activeLedger.peer.isPersonal}
-                  onBack={closeLedger}
-                />
-              ) : (
-                <LedgerClient
-                  connectionId={activeLedger.connectionId}
-                  peer={activeLedger.peer}
-                  currentUserId={currentUserId}
-                  transactions={activeLedger.transactions}
-                  netBalance={activeLedger.netBalance}
-                  isDisconnected={activeLedger.isDisconnected}
-                  initialHasMore={activeLedger.hasMore}
-                  onBack={closeLedger}
-                  onRefresh={reloadActiveLedger}
-                />
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+      {/* Native In-App Bottom Sheet Popup for Ledger View with Finger Swipe Down to Dismiss and CTA Header dragging */}
+      <ConnectionLedgerModal
+        activeLedger={activeLedger}
+        currentUserId={currentUserId}
+        onClose={closeLedger}
+        onRefresh={reloadActiveLedger}
+      />
     </div>
   );
 }

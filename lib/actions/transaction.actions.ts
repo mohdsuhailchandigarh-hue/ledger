@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { getUserFromSession } from '@/lib/auth/session';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { resolveConnectionPeerName } from '@/lib/utils/connection';
 
 const createTxnSchema = z.object({
   connectionId: z.string().uuid(),
@@ -156,11 +157,49 @@ export async function getPendingActionsAction() {
     query = query.not('connection_id', 'in', `(${deletedIds.join(',')})`);
   }
 
-  const { data } = await query
-    .order('transaction_date', { ascending: false })
-    .order('created_at', { ascending: false });
+  const [txnRes, reqRes] = await Promise.all([
+    query
+      .order('transaction_date', { ascending: false })
+      .order('created_at', { ascending: false }),
+    supabaseAdmin
+      .from('connection_requests')
+      .select(`
+        id,
+        status,
+        created_at,
+        from_user:users!connection_requests_from_user_id_fkey(id, username, name, avatar_url),
+        to_user:users!connection_requests_to_user_id_fkey(id, username, name, avatar_url)
+      `)
+      .eq('to_user_id', currentUser.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false }),
+  ]);
 
-  return { actions: data ?? [] };
+  const txns = (txnRes.data ?? []).map((t) => ({
+    ...t,
+    itemType: 'transaction' as const,
+  }));
+
+  const reqs = (reqRes.data ?? []).map((r) => ({
+    id: r.id,
+    itemType: 'connection_request' as const,
+    status: r.status as 'pending',
+    creator_id: (r.from_user as any)?.id,
+    counterparty_id: currentUser.id,
+    creator: r.from_user as any,
+    counterparty: r.to_user as any,
+    from_user: r.from_user as any,
+    to_user: r.to_user as any,
+    amount: 0,
+    direction: 'get' as const,
+    note: null,
+    transaction_date: r.created_at,
+    created_at: r.created_at,
+  }));
+
+  const allActions = [...reqs, ...txns];
+
+  return { actions: allActions, connectionRequests: reqRes.data ?? [] };
 }
 
 
@@ -269,13 +308,24 @@ export async function getDashboardSummaryAction() {
     pendingQuery = pendingQuery.not('connection_id', 'in', `(${Array.from(deletedIds).join(',')})`);
   }
 
-  const { data: pendingCount } = await pendingQuery;
+  const [pendingTxnCountRes, pendingReqCountRes] = await Promise.all([
+    pendingQuery,
+    supabaseAdmin
+      .from('connection_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('to_user_id', currentUser.id)
+      .eq('status', 'pending'),
+  ]);
+
+  const totalPendingActions =
+    ((pendingTxnCountRes.data as unknown as { count: number })?.count ?? 0) +
+    (pendingReqCountRes.count ?? 0);
 
   return {
     totalGet,
     totalGive,
     netPosition,
-    pendingActions: (pendingCount as unknown as { count: number })?.count ?? 0,
+    pendingActions: totalPendingActions,
   };
 }
 
@@ -364,7 +414,7 @@ export async function getLedgerDetailsAction(connectionId: string) {
   const currentUser = await getUserFromSession();
   if (!currentUser) return { error: 'Unauthorized' };
 
-  const [connectionResultRaw, transactionsResult, balanceResult] = await Promise.all([
+  const [connectionResultRaw, transactionsResult, balanceResult, countResult, pendingCountResult] = await Promise.all([
     supabaseAdmin
       .from('connections')
       .select(`
@@ -392,6 +442,15 @@ export async function getLedgerDetailsAction(connectionId: string) {
       .eq('connection_id', connectionId)
       .eq('user_id', currentUser.id)
       .maybeSingle(),
+    supabaseAdmin
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('connection_id', connectionId),
+    supabaseAdmin
+      .from('transactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('connection_id', connectionId)
+      .eq('status', 'pending'),
   ]);
 
   let connection: any = connectionResultRaw.data;
@@ -436,13 +495,21 @@ export async function getLedgerDetailsAction(connectionId: string) {
 
   const isPersonal = conn.user_b_id === null;
   const isDisconnected = !isPersonal && ((isUserA && conn.deleted_by_b) || (isUserB && conn.deleted_by_a));
-  const peer = isPersonal
-    ? { id: 'offline', name: conn.contact_name || 'Contact', username: conn.contact_phone || 'Offline', isPersonal: true }
+  const resolvedName = resolveConnectionPeerName(conn, currentUser.id);
+  const rawPeer = isPersonal
+    ? { id: 'offline', name: resolvedName, username: conn.contact_phone || 'Offline', isPersonal: true }
     : (isUserA ? conn.user_b : conn.user_a);
+  const peer = {
+    ...rawPeer,
+    name: resolvedName,
+    isPersonal,
+  };
 
   const transactions = (transactionsResult.data ?? []) as any[];
   const netBalance = Number((balanceResult.data as any)?.net_amount ?? 0);
   const hasMore = transactions.length === 50;
+  const totalCount = countResult.count ?? transactions.length;
+  const totalPendingCount = pendingCountResult.count ?? transactions.filter((t) => t.status === 'pending').length;
 
   return {
     connectionId,
@@ -451,6 +518,8 @@ export async function getLedgerDetailsAction(connectionId: string) {
     netBalance,
     isDisconnected,
     hasMore,
+    totalCount,
+    totalPendingCount,
   };
 }
 

@@ -79,6 +79,49 @@ export default async function DashboardPage() {
     personalConns = (personalConnsResult.data ?? []) as any[];
   }
 
+  // Find offline contacts created by other users matching this user's registered phone
+  let unclaimedConns: any[] = [];
+  if (user.phone) {
+    const cleanDigits = user.phone.replace(/\D/g, '').slice(-10);
+    if (cleanDigits.length === 10) {
+      const { data: unclaimedData } = await supabaseAdmin
+        .from('connections')
+        .select(`
+          id, created_at, contact_name, contact_phone,
+          user_a_id, user_b_id,
+          user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url)
+        `)
+        .is('user_b_id', null)
+        .neq('user_a_id', user.id)
+        .or(`contact_phone.eq.${cleanDigits},contact_phone.eq.+91${cleanDigits},contact_phone.ilike.%${cleanDigits}`);
+
+      if (unclaimedData && unclaimedData.length > 0) {
+        const userAIds = unclaimedData.map((c) => c.user_a_id).filter(Boolean);
+        const { data: reqs } = await supabaseAdmin
+          .from('connection_requests')
+          .select('id, status, from_user_id, to_user_id')
+          .or(`and(from_user_id.eq.${user.id},to_user_id.in.(${userAIds.join(',')})),and(to_user_id.eq.${user.id},from_user_id.in.(${userAIds.join(',')}))`)
+          .in('status', ['pending', 'accepted']);
+
+        const reqMap: Record<string, { id: string; status: string; isFromMe: boolean }> = {};
+        for (const r of ((reqs || []) as any[])) {
+          const otherId = r.from_user_id === user.id ? r.to_user_id : r.from_user_id;
+          reqMap[otherId] = {
+            id: r.id,
+            status: r.status,
+            isFromMe: r.from_user_id === user.id,
+          };
+        }
+
+        unclaimedConns = unclaimedData.map((c) => ({
+          ...c,
+          isUnclaimedForMe: true,
+          requestInfo: reqMap[c.user_a_id] || null,
+        }));
+      }
+    }
+  }
+
   // Build latest transaction preview map per connection
   const latestTxnMap: Record<string, {
     id: string;
@@ -99,8 +142,10 @@ export default async function DashboardPage() {
     }
   }
 
-  // Sort like WhatsApp: most recent message/activity bubbles to the top
-  const connections = [...platformConns, ...personalConns].sort((a, b) => {
+  // Sort like WhatsApp: most recent message/activity bubbles to the top, with unclaimed found ledgers prioritized
+  const connections = [...unclaimedConns, ...platformConns, ...personalConns].sort((a, b) => {
+    if (a.isUnclaimedForMe && !b.isUnclaimedForMe) return -1;
+    if (!a.isUnclaimedForMe && b.isUnclaimedForMe) return 1;
     const timeA = latestTxnMap[a.id]?.created_at || a.created_at;
     const timeB = latestTxnMap[b.id]?.created_at || b.created_at;
     return new Date(timeB).getTime() - new Date(timeA).getTime();

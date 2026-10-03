@@ -2,7 +2,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { upgradePersonalContactsForPhone } from './connection.actions';
+
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
@@ -66,9 +66,7 @@ export async function adminUpdateUserAction(
 
   if (error) return { error: 'Failed to update user' };
 
-  if (updates.phone) {
-    await upgradePersonalContactsForPhone(updates.phone, userId);
-  }
+
 
   revalidatePath('/admin/users');
   return { success: true };
@@ -172,10 +170,7 @@ export async function adminUpdateUserFullAction(
     await supabaseAdmin.from('sessions').delete().eq('user_id', userId);
   }
 
-  // 7. If phone number changed and is non-empty, trigger automatic contact upgrades
-  if (trimmedPhone && currentUser.phone !== trimmedPhone) {
-    await upgradePersonalContactsForPhone(trimmedPhone, userId);
-  }
+
 
   revalidatePath('/admin/users');
   return { success: true };

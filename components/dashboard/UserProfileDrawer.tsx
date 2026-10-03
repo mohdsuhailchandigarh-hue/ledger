@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { logoutAction } from '@/lib/actions/auth.actions';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
+import { useSwipeDownDismiss } from '@/lib/hooks/useSwipeDownDismiss';
 import AvatarAdjustModal from '@/components/dashboard/AvatarAdjustModal';
 import { extractPaletteFromUrl, type ExtractedPalette, DEFAULT_PALETTE } from '@/lib/utils/colorExtractor';
 
@@ -53,18 +54,28 @@ export default function UserProfileDrawer({
 }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+
+  const { isDismissing, dismissSheet, handleHeaderPointerDown } = useSwipeDownDismiss({
+    isOpen: isOpen && !isActionSheetOpen && !isAdjustModalOpen,
+    onClose,
+    sheetRef,
+    backdropRef,
+    scrollRef,
+    headerSelector: '.drawer-handle, [data-drag-header="true"], [data-drag-handle="true"]',
+    threshold: 110,
+  });
 
   const [currentAvatar, setCurrentAvatar] = useState<string | null>(avatarUrl ?? null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Dynamic photo palette extraction for realistic reflection
   const [photoPalette, setPhotoPalette] = useState<ExtractedPalette | null>(null);
-
-  // iOS-inspired bottom action sheet state
-  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
-
-  // Big circle adjuster modal state
-  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
   const [adjustingImageSrc, setAdjustingImageSrc] = useState<string | null>(null);
 
   // Progression bar state
@@ -297,12 +308,12 @@ export default function UserProfileDrawer({
           <>
             {/* Backdrop */}
             <motion.div
+              ref={backdropRef}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              exit={isDismissing ? undefined : { opacity: 0 }}
               transition={{ duration: 0.22 }}
-              onClick={onClose}
-              onTouchMove={(e) => e.preventDefault()}
+              onClick={dismissSheet}
               style={{
                 position: 'fixed',
                 inset: 0,
@@ -324,10 +335,12 @@ export default function UserProfileDrawer({
 
             {/* Drawer Sheet */}
             <motion.div
+              ref={sheetRef}
               initial={{ y: 'calc(100% + 50px)', opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 'calc(100% + 50px)', opacity: 0 }}
+              exit={isDismissing ? undefined : { y: 'calc(100% + 50px)', opacity: 0 }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              onPointerDown={handleHeaderPointerDown}
               className="profile-drawer-sheet"
               style={{
                 position: 'fixed',
@@ -337,6 +350,7 @@ export default function UserProfileDrawer({
                 maxWidth: 480,
                 margin: '0 auto',
                 zIndex: 101,
+                pointerEvents: isDismissing ? 'none' : 'auto',
                 background: 'var(--bg-surface)',
                 borderTop: '1px solid rgba(255, 255, 255, 0.1)',
                 borderLeft: '1px solid rgba(255, 255, 255, 0.05)',
@@ -353,6 +367,23 @@ export default function UserProfileDrawer({
                 transition: 'box-shadow 0.4s ease',
               }}
             >
+              {/* Drag Handle Bar Pill */}
+              <div
+                data-drag-handle="true"
+                className="drawer-handle"
+                style={{
+                  width: 44,
+                  height: 5,
+                  borderRadius: 3,
+                  background: 'rgba(255, 255, 255, 0.28)',
+                  margin: '0.625rem auto 0.25rem',
+                  flexShrink: 0,
+                  cursor: 'grab',
+                  touchAction: 'none',
+                  position: 'relative',
+                  zIndex: 20,
+                }}
+              />
               {/* Soft Ambient Photo Reflection across top of sheet with gentle breath */}
               {displayImage && (
                 <motion.div
@@ -769,7 +800,7 @@ export default function UserProfileDrawer({
               {/* Close Button in Top Right */}
               <button
                 type="button"
-                onClick={onClose}
+                onClick={dismissSheet}
                 aria-label="Close Profile Menu"
                 className="hover-bg-elevated"
                 style={{
@@ -795,6 +826,7 @@ export default function UserProfileDrawer({
 
               {/* Profile Info Header */}
               <div
+                data-drag-header="true"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -807,6 +839,10 @@ export default function UserProfileDrawer({
                   textAlign: 'center',
                   position: 'relative',
                   zIndex: 1,
+                  touchAction: 'none',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  cursor: 'grab',
                 }}
               >
                 <h3
@@ -929,6 +965,8 @@ export default function UserProfileDrawer({
 
               {/* Menu Links */}
               <div
+                ref={scrollRef}
+                data-scrollable="true"
                 style={{
                   padding: '1.125rem 1.25rem max(1.5rem, env(safe-area-inset-bottom, 1.5rem))',
                   display: 'flex',
@@ -937,6 +975,8 @@ export default function UserProfileDrawer({
                   overflowY: 'auto',
                   position: 'relative',
                   zIndex: 1,
+                  WebkitOverflowScrolling: 'touch',
+                  overscrollBehavior: 'contain',
                 }}
               >
                 {/* Option 1: Pending Approvals (Opens popup directly, no awkward page redirect) */}

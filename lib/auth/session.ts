@@ -9,6 +9,7 @@ export type SessionUser = {
   username: string;
   name: string;
   avatar_url?: string | null;
+  phone?: string | null;
   is_admin: boolean;
   is_active: boolean;
 };
@@ -57,7 +58,7 @@ function verifyToken(token: string): string | null {
 export async function createUserSession(userId: string): Promise<string> {
   const { data: user } = await supabaseAdmin
     .from('users')
-    .select('id, username, name, avatar_url, is_admin, is_active')
+    .select('id, username, name, avatar_url, phone, is_admin, is_active')
     .eq('id', userId)
     .single();
 
@@ -109,17 +110,19 @@ export const getUserFromSession = cache(async (): Promise<SessionUser | null> =>
 
   if (!user || !user.is_active) return null;
 
-  // Fallback if avatar_url is missing in cached session cookie payload
-  if (user.avatar_url === undefined) {
+  // Fallback if avatar_url or phone is missing in cached session cookie payload
+  if (user.avatar_url === undefined || user.phone === undefined) {
     try {
       const { data: dbUser } = await supabaseAdmin
         .from('users')
-        .select('avatar_url')
+        .select('avatar_url, phone')
         .eq('id', user.id)
         .single();
-      user.avatar_url = dbUser?.avatar_url ?? null;
+      if (user.avatar_url === undefined) user.avatar_url = dbUser?.avatar_url ?? null;
+      if (user.phone === undefined) user.phone = dbUser?.phone ?? null;
     } catch {
-      user.avatar_url = null;
+      if (user.avatar_url === undefined) user.avatar_url = null;
+      if (user.phone === undefined) user.phone = null;
     }
   }
 

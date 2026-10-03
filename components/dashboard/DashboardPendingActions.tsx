@@ -1,23 +1,25 @@
-'use client';
-
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, X, Check, AlertCircle, Edit2, RotateCcw, BellOff, Calendar } from 'lucide-react';
+import { Clock, X, Check, AlertCircle, Edit2, RotateCcw, BellOff, Calendar, UserPlus } from 'lucide-react';
 import { respondToTransactionAction, handleRejectedTransactionAction } from '@/lib/actions/transaction.actions';
+import { respondToConnectionRequestAction } from '@/lib/actions/connection.actions';
 import { useRouter } from 'next/navigation';
 
-type Transaction = {
+type PendingActionItem = {
   id: string;
-  amount: number;
-  direction: 'give' | 'get';
+  itemType?: 'transaction' | 'connection_request';
+  amount?: number;
+  direction?: 'give' | 'get';
   note?: string | null;
   status: 'pending' | 'accepted' | 'rejected' | 'canceled';
   created_at: string;
   transaction_date?: string | null;
   creator_id: string;
   counterparty_id: string;
-  creator: { id: string; name: string; username: string };
-  counterparty: { id: string; name: string; username: string };
+  creator: { id: string; name: string; username: string; avatar_url?: string | null };
+  counterparty: { id: string; name: string; username: string; avatar_url?: string | null };
+  from_user?: { id: string; name: string; username: string; avatar_url?: string | null };
+  to_user?: { id: string; name: string; username: string; avatar_url?: string | null };
 };
 
 function formatTxnDate(dateStr: string | null | undefined, fallback: string): string {
@@ -48,7 +50,7 @@ export default function DashboardPendingActions({
   actions,
   currentUserId,
 }: {
-  actions: Transaction[];
+  actions: PendingActionItem[];
   currentUserId: string;
 }) {
   const [snoozedIds, setSnoozedIds]       = useState<Set<string>>(new Set());
@@ -92,6 +94,13 @@ export default function DashboardPendingActions({
     setLoadingId(id);
     setConfirmRejectId(null);
     await respondToTransactionAction(id, action);
+    setLoadingId(null);
+    finishCard(id, action);
+  };
+
+  const handleRespondConnection = async (id: string, action: 'accepted' | 'rejected') => {
+    setLoadingId(id);
+    await respondToConnectionRequestAction(id, action);
     setLoadingId(null);
     finishCard(id, action);
   };
@@ -192,24 +201,31 @@ export default function DashboardPendingActions({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
         <AnimatePresence mode="popLayout">
           {activeActions.map((txn, i) => {
+            const isConnectionRequest = txn.itemType === 'connection_request';
             const isPending          = txn.status === 'pending';
             const isRejectedStatus   = txn.status === 'rejected';
             const iAmCreator         = txn.creator_id === currentUserId;
-            const peer               = iAmCreator ? txn.counterparty : txn.creator;
+            const peer               = isConnectionRequest
+              ? (txn.from_user || txn.creator)
+              : (iAmCreator ? txn.counterparty : txn.creator);
             const iWillGive          = iAmCreator ? txn.direction === 'give' : txn.direction === 'get';
-            const amount             = Number(txn.amount);
+            const amount             = Number(txn.amount || 0);
             const isEditing          = editingId === txn.id;
             const isLoading          = loadingId === txn.id;
             const isConfirmingReject = confirmRejectId === txn.id;
             const doneState          = doneMap.get(txn.id);
 
-            const accentColor = isRejectedStatus
+            const accentColor = isConnectionRequest
+              ? '#3897f0'
+              : isRejectedStatus
               ? 'var(--danger)'
               : iWillGive
               ? 'var(--danger)'
               : 'var(--success)';
 
-            const stripeGradient = isRejectedStatus || doneState === 'rejected'
+            const stripeGradient = isConnectionRequest
+              ? 'linear-gradient(90deg, #065DE8, #3897f0)'
+              : isRejectedStatus || doneState === 'rejected'
               ? 'linear-gradient(90deg,var(--danger),#fb7185)'
               : doneState === 'accepted'
               ? 'linear-gradient(90deg,var(--success),#34d399)'
@@ -228,7 +244,9 @@ export default function DashboardPendingActions({
                 style={{
                   background: 'var(--bg-elevated)',
                   border: `1px solid ${
-                    isRejectedStatus || doneState === 'rejected'
+                    isConnectionRequest
+                      ? 'rgba(56, 151, 240, 0.25)'
+                      : isRejectedStatus || doneState === 'rejected'
                       ? 'var(--danger-border)'
                       : doneState === 'accepted'
                       ? 'var(--success-border)'
@@ -266,25 +284,33 @@ export default function DashboardPendingActions({
                             width: 48,
                             height: 48,
                             borderRadius: '50%',
-                            background: doneState === 'accepted' ? 'var(--success-muted)' : 'var(--danger-muted)',
-                            border: `2px solid ${doneState === 'accepted' ? 'var(--success-border)' : 'var(--danger-border)'}`,
+                            background: doneState === 'accepted'
+                              ? (isConnectionRequest ? 'rgba(56, 151, 240, 0.15)' : 'var(--success-muted)')
+                              : 'var(--danger-muted)',
+                            border: `2px solid ${
+                              doneState === 'accepted'
+                                ? (isConnectionRequest ? '#3897f0' : 'var(--success-border)')
+                                : 'var(--danger-border)'
+                            }`,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                           }}
                         >
                           {doneState === 'accepted'
-                            ? <Check size={22} color="var(--success)" strokeWidth={2.5} />
+                            ? <Check size={22} color={isConnectionRequest ? '#3897f0' : 'var(--success)'} strokeWidth={2.5} />
                             : <X     size={22} color="var(--danger)"  strokeWidth={2.5} />}
                         </motion.div>
                         <div style={{ textAlign: 'center' }}>
                           <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '1px' }}>
-                            {doneState === 'accepted' ? 'Accepted!' : 'Done'}
+                            {isConnectionRequest
+                              ? (doneState === 'accepted' ? 'Connected!' : 'Request Declined')
+                              : (doneState === 'accepted' ? 'Accepted!' : 'Done')}
                           </p>
                           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            {doneState === 'accepted'
-                              ? 'Ledger updated successfully'
-                              : 'Transaction processed'}
+                            {isConnectionRequest
+                              ? (doneState === 'accepted' ? `You and ${peer.name} are now connected with a Shared Ledger.` : 'Connection request declined')
+                              : (doneState === 'accepted' ? 'Ledger updated successfully' : 'Transaction processed')}
                           </p>
                         </div>
                       </motion.div>
@@ -299,7 +325,11 @@ export default function DashboardPendingActions({
                                 width: 38,
                                 height: 38,
                                 borderRadius: '50%',
-                                background: isRejectedStatus ? 'var(--danger-muted)' : avatarGradient(peer.name),
+                                background: isConnectionRequest
+                                  ? 'linear-gradient(135deg,#065DE8,#3897f0)'
+                                  : isRejectedStatus
+                                  ? 'var(--danger-muted)'
+                                  : avatarGradient(peer.name),
                                 border: isRejectedStatus ? '1px solid var(--danger-border)' : '1px solid rgba(255,255,255,0.08)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -327,9 +357,15 @@ export default function DashboardPendingActions({
                               <p style={{ fontSize: '0.875rem', fontWeight: 700, color: isRejectedStatus ? 'var(--danger)' : 'var(--text-primary)', marginBottom: '1px', letterSpacing: '-0.01em' }}>
                                 {peer.name}
                               </p>
-                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                <Calendar size={10} />
-                                {formatTxnDate(txn.transaction_date, txn.created_at)}
+                              <p style={{ fontSize: '0.75rem', color: isConnectionRequest ? 'var(--accent-primary, #3897f0)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                {isConnectionRequest ? (
+                                  <span>@{peer.username || 'user'} · Sent connection request</span>
+                                ) : (
+                                  <>
+                                    <Calendar size={10} />
+                                    {formatTxnDate(txn.transaction_date, txn.created_at)}
+                                  </>
+                                )}
                               </p>
                             </div>
                           </div>
@@ -340,16 +376,126 @@ export default function DashboardPendingActions({
                             textTransform: 'uppercase',
                             padding: '2px 6px',
                             borderRadius: '9999px',
-                            background: isRejectedStatus ? 'var(--danger-muted)' : 'var(--warning-muted)',
-                            color:      isRejectedStatus ? 'var(--danger)'       : 'var(--warning)',
-                            border: `1px solid ${isRejectedStatus ? 'var(--danger-border)' : 'var(--warning-border)'}`,
+                            background: isConnectionRequest ? 'rgba(56, 151, 240, 0.15)' : isRejectedStatus ? 'var(--danger-muted)' : 'var(--warning-muted)',
+                            color:      isConnectionRequest ? '#3897f0' : isRejectedStatus ? 'var(--danger)'       : 'var(--warning)',
+                            border: `1px solid ${isConnectionRequest ? 'rgba(56, 151, 240, 0.3)' : isRejectedStatus ? 'var(--danger-border)' : 'var(--warning-border)'}`,
                           }}>
-                            {isRejectedStatus ? 'Rejected' : 'Pending'}
+                            {isConnectionRequest ? 'Connect' : isRejectedStatus ? 'Rejected' : 'Pending'}
                           </span>
                         </div>
 
-                        {/* Amount or edit form */}
-                        {isEditing ? (
+                        {/* Amount or Invitation Card or edit form */}
+                        {isConnectionRequest ? (
+                          <div style={{ marginBottom: '1rem' }}>
+                            {/* Invitation Card */}
+                            <div
+                              style={{
+                                background: 'rgba(56, 151, 240, 0.06)',
+                                border: '1px solid rgba(56, 151, 240, 0.2)',
+                                borderRadius: 'var(--radius-lg, 14px)',
+                                padding: '1rem 0.875rem',
+                                textAlign: 'center',
+                                marginBottom: '0.75rem',
+                                position: 'relative',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  top: 0,
+                                  left: '50%',
+                                  transform: 'translateX(-50%)',
+                                  width: 120,
+                                  height: 50,
+                                  background: 'radial-gradient(ellipse at center, rgba(56, 151, 240, 0.22) 0%, transparent 70%)',
+                                  pointerEvents: 'none',
+                                }}
+                              />
+                              <div
+                                style={{
+                                  width: 42,
+                                  height: 42,
+                                  borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, rgba(6, 93, 232, 0.25), rgba(56, 151, 240, 0.18))',
+                                  border: '1.5px solid rgba(56, 151, 240, 0.4)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  margin: '0 auto 0.5rem',
+                                  color: '#3897f0',
+                                  boxShadow: '0 4px 14px rgba(6, 93, 232, 0.2)',
+                                }}
+                              >
+                                <UserPlus size={20} />
+                              </div>
+                              <h4
+                                style={{
+                                  fontSize: '0.9375rem',
+                                  fontWeight: 700,
+                                  color: 'var(--text-primary)',
+                                  margin: '0 0 0.25rem 0',
+                                  letterSpacing: '-0.015em',
+                                }}
+                              >
+                                Shared Ledger Invitation
+                              </h4>
+                              <p
+                                style={{
+                                  fontSize: '0.75rem',
+                                  color: 'var(--text-secondary)',
+                                  margin: 0,
+                                  lineHeight: 1.45,
+                                }}
+                              >
+                                <strong style={{ color: 'var(--text-primary)' }}>{peer.name}</strong> (@{peer.username}) wants to connect accounts with you.
+                              </p>
+                            </div>
+
+                            {/* Warning Banner: Shared Ledger Notice */}
+                            <div
+                              style={{
+                                background: 'rgba(245, 158, 11, 0.08)',
+                                border: '1px solid rgba(245, 158, 11, 0.25)',
+                                borderRadius: 'var(--radius-md, 12px)',
+                                padding: '0.75rem 0.875rem',
+                                display: 'flex',
+                                gap: '0.625rem',
+                                alignItems: 'flex-start',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <AlertCircle
+                                size={16}
+                                color="#f59e0b"
+                                style={{ flexShrink: 0, marginTop: '2px' }}
+                              />
+                              <div>
+                                <div
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    color: '#f59e0b',
+                                    marginBottom: '2px',
+                                    letterSpacing: '-0.01em',
+                                  }}
+                                >
+                                  Notice: Shared Ledger Access
+                                </div>
+                                <p
+                                  style={{
+                                    fontSize: '0.7rem',
+                                    color: 'var(--text-secondary)',
+                                    margin: 0,
+                                    lineHeight: 1.4,
+                                  }}
+                                >
+                                  Accepting will turn this into a <strong>2-way Shared Ledger</strong>. Both of you will see each other&rsquo;s entries, real-time balances, and live transaction updates.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : isEditing ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                               <input
@@ -478,8 +624,54 @@ export default function DashboardPendingActions({
                               style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
                             >
                               <div style={{ display: 'flex', gap: '0.375rem' }}>
-                                {/* PENDING card buttons */}
-                                {isPending && !isEditing && (
+                                {/* Connection Request buttons */}
+                                {isConnectionRequest ? (
+                                  <>
+                                    <motion.button
+                                      whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                                      transition={BTN_SPRING}
+                                      onClick={() => handleRespondConnection(txn.id, 'rejected')}
+                                      disabled={loadingId !== null}
+                                      className="btn"
+                                      style={{
+                                        flex: 1,
+                                        background: 'var(--danger-muted)',
+                                        color: 'var(--danger)',
+                                        border: '1px solid var(--danger-border)',
+                                        fontSize: '0.8125rem',
+                                        fontWeight: 600,
+                                        justifyContent: 'center',
+                                        gap: '0.25rem',
+                                        padding: '0.5rem',
+                                      }}
+                                    >
+                                      <X size={14} strokeWidth={2.5} /> Decline
+                                    </motion.button>
+                                    <motion.button
+                                      whileHover={{ scale: 1.02, boxShadow: '0 4px 18px rgba(6,93,232,0.35)' }}
+                                      whileTap={{ scale: 0.96 }}
+                                      transition={BTN_SPRING}
+                                      onClick={() => handleRespondConnection(txn.id, 'accepted')}
+                                      disabled={loadingId !== null}
+                                      className="btn"
+                                      style={{
+                                        flex: 1.4,
+                                        background: 'linear-gradient(135deg, #065DE8 0%, #1e75ff 52%, #3897f0 100%)',
+                                        color: 'white',
+                                        fontSize: '0.8125rem',
+                                        fontWeight: 700,
+                                        justifyContent: 'center',
+                                        gap: '0.25rem',
+                                        boxShadow: '0 2px 10px rgba(6,93,232,0.25)',
+                                        border: 'none',
+                                        padding: '0.5rem',
+                                      }}
+                                    >
+                                      {isLoading ? <span className="dashboard-spin" /> : <Check size={14} strokeWidth={2.5} />}
+                                      Accept & Connect
+                                    </motion.button>
+                                  </>
+                                ) : isPending && !isEditing ? (
                                   <>
                                     <motion.button
                                       whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
@@ -525,7 +717,7 @@ export default function DashboardPendingActions({
                                       Accept
                                     </motion.button>
                                   </>
-                                )}
+                                ) : null}
 
                                 {/* REJECTED card buttons */}
                                 {isRejectedStatus && !isEditing && (

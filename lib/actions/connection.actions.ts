@@ -134,21 +134,102 @@ export async function createPersonalContactAction(name: string, phone: string) {
   return { success: true };
 }
 
-export async function updatePersonalContactAction(connectionId: string, name: string) {
+
+
+export async function updateContactNameAction(
+  connectionId: string,
+  name: string,
+  phone?: string | null
+) {
   const currentUser = await getUserFromSession();
   if (!currentUser) return { error: 'Unauthorized' };
 
-  const { error } = await supabaseAdmin
+  const trimmed = name.trim();
+  if (!trimmed) return { error: 'Name cannot be empty' };
+
+  const { data: conn } = await supabaseAdmin
     .from('connections')
-    .update({ contact_name: name })
+    .select('id, user_a_id, user_b_id, contact_name, contact_phone')
     .eq('id', connectionId)
-    .eq('user_a_id', currentUser.id)
-    .is('user_b_id', null);
+    .single();
 
-  if (error) return { error: 'Failed to update contact name' };
+  if (!conn) return { error: 'Connection not found' };
 
-  revalidatePath('/connections');
-  return { success: true };
+  const isUserA = conn.user_a_id === currentUser.id;
+  const isUserB = conn.user_b_id === currentUser.id;
+
+  if (!isUserA && !isUserB) return { error: 'Unauthorized' };
+
+  if (conn.user_b_id === null) {
+    const updatePayload: { contact_name: string; contact_phone?: string } = {
+      contact_name: trimmed,
+    };
+
+    if (phone !== undefined && phone !== null) {
+      const cleanPhone = phone.trim().replace(/\D/g, '').slice(-10);
+      if (cleanPhone.length < 10) {
+        return { error: 'Please enter a valid 10-digit mobile number' };
+      }
+
+      // Check if this user already has another personal contact with this phone
+      const { data: existingContact } = await supabaseAdmin
+        .from('connections')
+        .select('id')
+        .eq('user_a_id', currentUser.id)
+        .is('user_b_id', null)
+        .neq('id', connectionId)
+        .or(`contact_phone.eq.${cleanPhone},contact_phone.eq.+91${cleanPhone},contact_phone.ilike.%${cleanPhone}`)
+        .maybeSingle();
+
+      if (existingContact) {
+        return { error: 'You already have another contact with this mobile number' };
+      }
+
+      updatePayload.contact_phone = cleanPhone;
+    }
+
+    const { error } = await supabaseAdmin
+      .from('connections')
+      .update(updatePayload)
+      .eq('id', connectionId);
+
+    if (error) return { error: 'Failed to update contact details' };
+
+    revalidatePath('/connections');
+    revalidatePath('/dashboard');
+    revalidatePath(`/ledger/${connectionId}`);
+    revalidatePath('/');
+    return { success: true, name: trimmed, phone: updatePayload.contact_phone ?? conn.contact_phone };
+  } else {
+    let namesMap: Record<string, string> = {};
+    if (conn.contact_name && conn.contact_name.startsWith('{')) {
+      try {
+        namesMap = JSON.parse(conn.contact_name);
+      } catch {}
+    }
+    namesMap[currentUser.id] = trimmed;
+
+    const { error } = await supabaseAdmin
+      .from('connections')
+      .update({ contact_name: JSON.stringify(namesMap) })
+      .eq('id', connectionId);
+
+    if (error) return { error: 'Failed to update contact name' };
+
+    revalidatePath('/connections');
+    revalidatePath('/dashboard');
+    revalidatePath(`/ledger/${connectionId}`);
+    revalidatePath('/');
+    return { success: true, name: trimmed };
+  }
+}
+
+export async function updatePersonalContactAction(
+  connectionId: string,
+  name: string,
+  phone?: string | null
+) {
+  return updateContactNameAction(connectionId, name, phone);
 }
 
 // ─── Send connection request ──────────────────────────────────
@@ -196,6 +277,9 @@ export async function sendConnectionRequestAction(toUserId: string) {
   if (error) return { error: 'Failed to send request' };
 
   revalidatePath('/connections');
+  revalidatePath('/dashboard');
+  revalidatePath('/notifications');
+  revalidatePath('/');
   return { success: true };
 }
 
@@ -226,13 +310,14 @@ export async function respondToConnectionRequestAction(
     
     // Check if receiver (User B) matches a personal contact created by sender (User A)
     const { data: acceptingUser } = await supabaseAdmin.from('users').select('phone').eq('id', request.to_user_id).single();
-    if (acceptingUser?.phone) {
+    const acceptingPhoneDigits = acceptingUser?.phone ? acceptingUser.phone.replace(/\D/g, '').slice(-10) : '';
+    if (acceptingPhoneDigits.length === 10) {
       const { data: personalConn } = await supabaseAdmin.from('connections')
         .select('id')
         .eq('user_a_id', request.from_user_id)
         .is('user_b_id', null)
-        .eq('contact_phone', acceptingUser.phone)
-        .single();
+        .or(`contact_phone.eq.${acceptingPhoneDigits},contact_phone.eq.+91${acceptingPhoneDigits},contact_phone.ilike.%${acceptingPhoneDigits}`)
+        .maybeSingle();
         
       if (personalConn) {
         await supabaseAdmin.from('connections').update({ user_b_id: request.to_user_id }).eq('id', personalConn.id);
@@ -244,13 +329,14 @@ export async function respondToConnectionRequestAction(
     // Check the reverse: what if the sender was the one who just registered, and receiver had the offline contact?
     if (!upgraded) {
       const { data: sendingUser } = await supabaseAdmin.from('users').select('phone').eq('id', request.from_user_id).single();
-      if (sendingUser?.phone) {
+      const sendingPhoneDigits = sendingUser?.phone ? sendingUser.phone.replace(/\D/g, '').slice(-10) : '';
+      if (sendingPhoneDigits.length === 10) {
         const { data: reverseConn } = await supabaseAdmin.from('connections')
           .select('id')
           .eq('user_a_id', request.to_user_id)
           .is('user_b_id', null)
-          .eq('contact_phone', sendingUser.phone)
-          .single();
+          .or(`contact_phone.eq.${sendingPhoneDigits},contact_phone.eq.+91${sendingPhoneDigits},contact_phone.ilike.%${sendingPhoneDigits}`)
+          .maybeSingle();
           
         if (reverseConn) {
           await supabaseAdmin.from('connections').update({ user_b_id: request.from_user_id }).eq('id', reverseConn.id);
@@ -291,6 +377,9 @@ export async function respondToConnectionRequestAction(
   }
 
   revalidatePath('/connections');
+  revalidatePath('/dashboard');
+  revalidatePath('/notifications');
+  revalidatePath('/');
   return { success: true };
 }
 

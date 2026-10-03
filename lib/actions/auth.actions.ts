@@ -10,7 +10,7 @@ import {
   deleteAdminSession,
 } from '@/lib/auth/session';
 import { z } from 'zod';
-import { upgradePersonalContactsForPhone } from './connection.actions';
+
 
 const loginSchema = z.object({
   identifier: z.string().min(1, 'Username or phone is required'),
@@ -201,15 +201,10 @@ export async function signUpAction(
     return { error: insertError?.message || 'Failed to create account. Please try again.' };
   }
 
-  // 4. Upgrade any personal contacts saved by other users for this phone number
-  try {
-    await upgradePersonalContactsForPhone(phone, newUser.id);
-    await upgradePersonalContactsForPhone(`+91${phone}`, newUser.id);
-  } catch (err) {
-    console.warn('Failed to upgrade contacts during signup:', err);
-  }
+  // Note: We do NOT auto-upgrade personal contacts silently here.
+  // Both parties must connect via connection request to unlock and share the ledger.
 
-  // 5. Establish session & redirect to dashboard
+  // 4. Establish session & redirect to dashboard
   await createUserSession(newUser.id);
   redirect('/dashboard');
 }
@@ -280,10 +275,7 @@ export async function createUserAction(formData: FormData): Promise<{ error?: st
     return { error: error?.message || 'Failed to create user' };
   }
 
-  // Check if any existing personal contacts match this phone number
-  if (phone) {
-    await upgradePersonalContactsForPhone(phone, user.id);
-  }
+
 
   return { user };
 }

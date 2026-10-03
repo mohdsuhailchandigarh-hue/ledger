@@ -17,7 +17,7 @@ import {
   sendConnectionRequestAction,
 } from '@/lib/actions/connection.actions';
 import { useRouter } from 'next/navigation';
-import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
+import { useSwipeDownDismiss } from '@/lib/hooks/useSwipeDownDismiss';
 
 type Props = {
   currentUserId: string;
@@ -75,7 +75,23 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<'input' | 'found' | 'not_found'>('input');
 
-  useBodyScrollLock(isOpen);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleClose = () => {
+    setIsOpen(false);
+  };
+
+  const { isDismissing, dismissSheet, handleHeaderPointerDown } = useSwipeDownDismiss({
+    isOpen,
+    onClose: handleClose,
+    sheetRef,
+    backdropRef,
+    scrollRef,
+    headerSelector: '.sheet-handle, .modal-header, [data-drag-header="true"], [data-drag-handle="true"]',
+    threshold: 110,
+  });
 
   // Phone input states
   const [phone, setPhone] = useState('');
@@ -120,10 +136,6 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
     setTimeout(() => {
       phoneInputRef.current?.focus();
     }, 150);
-  };
-
-  const handleClose = () => {
-    setIsOpen(false);
   };
 
   const handlePhoneInputChange = (raw: string) => {
@@ -355,11 +367,14 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
         {isOpen && (
           <>
             {/* Backdrop */}
+            {/* Backdrop */}
             <motion.div
+              ref={backdropRef}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleClose}
+              exit={isDismissing ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              onClick={dismissSheet}
               onPointerDown={handleDismissKeyboardIfOutside}
               onTouchMove={(e) => e.preventDefault()}
               style={{
@@ -374,42 +389,70 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
 
             {/* Sheet / Dialog */}
             <motion.div
-              initial={{ opacity: 0, y: 35, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 35, scale: 0.97 }}
-              transition={{ duration: 0.24, ease: [0.2, 1, 0.3, 1] }}
-              onPointerDown={handleDismissKeyboardIfOutside}
+              ref={sheetRef}
+              initial={{ opacity: 0, y: 'calc(100% + 50px)' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={isDismissing ? undefined : { opacity: 0, y: 'calc(100% + 50px)' }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              onPointerDown={(e) => {
+                handleDismissKeyboardIfOutside(e);
+                handleHeaderPointerDown(e);
+              }}
               className="add-connection-modal"
               style={{
                 position: 'fixed',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                maxWidth: 480,
+                margin: '0 auto',
                 zIndex: 61,
+                pointerEvents: isDismissing ? 'none' : 'auto',
                 background: 'var(--bg-base)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderTop: '1px solid rgba(255, 255, 255, 0.14)',
+                borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRight: '1px solid rgba(255, 255, 255, 0.08)',
                 boxShadow: '0 24px 64px -12px rgba(0, 0, 0, 0.75)',
+                borderTopLeftRadius: '28px',
+                borderTopRightRadius: '28px',
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
                 overflow: 'hidden',
               }}
             >
               {/* Mobile handle indicator */}
-              <div className="sheet-handle">
+              <div
+                className="sheet-handle"
+                data-drag-handle="true"
+                style={{ cursor: 'grab', touchAction: 'none' }}
+              >
                 <div
                   style={{
-                    width: 36,
-                    height: 4,
-                    borderRadius: '9999px',
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    margin: '0.75rem auto 0.25rem',
+                    width: 44,
+                    height: 5,
+                    borderRadius: 3,
+                    background: 'rgba(255, 255, 255, 0.28)',
+                    margin: '0.625rem auto 0.25rem',
+                    cursor: 'grab',
                   }}
                 />
               </div>
 
               {/* Modal Topbar Header (Instagram Style) */}
               <div
+                className="modal-header"
+                data-drag-header="true"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '1rem 1.25rem 0.75rem',
+                  padding: '0.875rem 1.25rem 0.75rem',
                   borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                  touchAction: 'none',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  cursor: 'grab',
                 }}
               >
                 {step !== 'input' ? (
@@ -455,7 +498,7 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
 
                 <button
                   type="button"
-                  onClick={handleClose}
+                  onClick={dismissSheet}
                   style={{
                     width: 32,
                     height: 32,
@@ -475,7 +518,18 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
               </div>
 
               {/* Modal Body */}
-              <div style={{ padding: '1.25rem' }} onPointerDown={handleDismissKeyboardIfOutside}>
+              <div
+                ref={scrollRef}
+                data-scrollable="true"
+                style={{
+                  padding: '1.25rem',
+                  overflowY: 'auto',
+                  maxHeight: 'calc(90vh - 75px)',
+                  WebkitOverflowScrolling: 'touch',
+                  overscrollBehavior: 'contain',
+                }}
+                onPointerDown={handleDismissKeyboardIfOutside}
+              >
                 {/* ══════════════════════════════════════════════════════
                     STEP 1: Enter Phone Number (Instagram Login Style)
                    ══════════════════════════════════════════════════════ */}
@@ -1112,38 +1166,33 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
       </AnimatePresence>
 
       <style>{`
-        /* Responsive styles for FAB and Modal */
+        /* Consistent bottom sheet styling on mobile and desktop */
+        .add-connection-modal {
+          bottom: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          margin: 0 auto !important;
+          width: 100% !important;
+          max-width: 480px !important;
+          border-top-left-radius: 28px !important;
+          border-top-right-radius: 28px !important;
+          border-bottom-left-radius: 0 !important;
+          border-bottom-right-radius: 0 !important;
+          max-height: 90vh !important;
+        }
+        .sheet-handle {
+          display: block !important;
+        }
         @media (max-width: 768px) {
           .add-connection-fab {
             bottom: max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem)) !important;
             right: 1.25rem !important;
-          }
-          .add-connection-modal {
-            bottom: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            border-radius: 20px 20px 0 0 !important;
-            max-height: 90vh;
-          }
-          .sheet-handle {
-            display: block;
           }
         }
         @media (min-width: 769px) {
           .add-connection-fab {
             bottom: 2rem !important;
             right: 2rem !important;
-          }
-          .add-connection-modal {
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) !important;
-            width: 90% !important;
-            max-width: 440px !important;
-            border-radius: 18px !important;
-          }
-          .sheet-handle {
-            display: none;
           }
         }
       `}</style>
