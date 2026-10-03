@@ -5,6 +5,7 @@ import {
   loginAction,
   signUpAction,
   changePasswordAction,
+  checkSignUpUsernameAction,
   type AuthState,
 } from '@/lib/actions/auth.actions';
 import {
@@ -16,6 +17,8 @@ import {
   MessageCircle,
   AlertCircle,
   CheckCircle2,
+  XCircle,
+  Loader2,
   X,
   ExternalLink,
   ArrowLeft,
@@ -83,6 +86,12 @@ export default function LoginPage({
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState('');
   const [signUpError, setSignUpError] = useState('');
   const [isSignUpPhoneFocused, setIsSignUpPhoneFocused] = useState(false);
+  const [isSignUpUsernameFocused, setIsSignUpUsernameFocused] = useState(false);
+  const [usernameCheckStatus, setUsernameCheckStatus] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    error?: string;
+  }>({ checking: false, available: null });
 
   // Password visibility
   const [showSignInPassword, setShowSignInPassword] = useState(false);
@@ -139,6 +148,53 @@ export default function LoginPage({
     setter(clean);
   };
 
+  // Real-time username availability check (debounced)
+  useEffect(() => {
+    const clean = signUpUsername.trim().toLowerCase().replace(/^@+/, '');
+    if (!clean || clean.length < 3) {
+      setUsernameCheckStatus({ checking: false, available: null });
+      return;
+    }
+
+    if (!/^[a-z0-9]+$/.test(clean)) {
+      setUsernameCheckStatus({
+        checking: false,
+        available: false,
+        error: 'Only lowercase letters and numbers allowed',
+      });
+      return;
+    }
+
+    let isCurrent = true;
+    setUsernameCheckStatus((prev) => ({ ...prev, checking: true }));
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await checkSignUpUsernameAction(clean);
+        if (isCurrent) {
+          if (res.available) {
+            setUsernameCheckStatus({ checking: false, available: true });
+          } else {
+            setUsernameCheckStatus({
+              checking: false,
+              available: false,
+              error: res.error || 'Username is already taken',
+            });
+          }
+        }
+      } catch {
+        if (isCurrent) {
+          setUsernameCheckStatus({ checking: false, available: null });
+        }
+      }
+    }, 250);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [signUpUsername]);
+
   // Password rules validation
   const pwHasLength = signUpPassword.length >= 8;
   const pwHasLetter = /[a-zA-Z]/.test(signUpPassword);
@@ -173,9 +229,19 @@ export default function LoginPage({
       setSignUpError('Username must be at least 3 characters');
       return;
     }
+    if (usernameCheckStatus.available === false) {
+      e.preventDefault();
+      setSignUpError(usernameCheckStatus.error || 'Username is already taken');
+      return;
+    }
+    if (usernameCheckStatus.checking) {
+      e.preventDefault();
+      setSignUpError('Checking username availability...');
+      return;
+    }
     if (!pwIsValid) {
       e.preventDefault();
-      setSignUpError('Password must have 8+ characters, at least 1 letter and 1 number');
+      setSignUpError('Please choose a strong password (at least 8 characters)');
       return;
     }
     if (signUpPassword !== signUpConfirmPassword) {
@@ -676,6 +742,7 @@ export default function LoginPage({
                   setSignInPhoneWarning(null);
                   setSignUpError('');
                   setSignUpPhoneWarning(null);
+                  setUsernameCheckStatus({ checking: false, available: null });
                   setMode('signup');
                 }}
                 style={{
@@ -818,17 +885,48 @@ export default function LoginPage({
               <div
                 style={{
                   background: '#18171C',
-                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  border:
+                    usernameCheckStatus.available === false
+                      ? '1px solid #ef4444'
+                      : usernameCheckStatus.available === true
+                      ? '1px solid rgba(34, 197, 94, 0.5)'
+                      : isSignUpUsernameFocused
+                      ? '1px solid #3897f0'
+                      : '1px solid rgba(255, 255, 255, 0.18)',
                   borderRadius: '13px',
                   padding: '0.4rem 0.75rem',
                   display: 'flex',
                   flexDirection: 'column',
+                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                  boxShadow:
+                    usernameCheckStatus.available === false
+                      ? '0 0 0 1px #ef4444'
+                      : isSignUpUsernameFocused
+                      ? '0 0 0 1px #3897f0'
+                      : 'none',
                 }}
                 className="insta-input-box"
               >
-                <span style={{ fontSize: '0.65rem', color: '#8e8e93', fontWeight: 500, lineHeight: 1 }}>
-                  Username <span style={{ color: '#ef4444' }}>*</span>
-                </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.65rem', color: '#8e8e93', fontWeight: 500, lineHeight: 1 }}>
+                    Username <span style={{ color: '#ef4444' }}>*</span>
+                  </span>
+                  {usernameCheckStatus.checking && (
+                    <span style={{ fontSize: '0.65rem', color: '#a1a1aa', fontWeight: 500 }}>
+                      Checking...
+                    </span>
+                  )}
+                  {!usernameCheckStatus.checking && usernameCheckStatus.available === true && (
+                    <span style={{ fontSize: '0.65rem', color: '#22c55e', fontWeight: 600 }}>
+                      ✓ Available
+                    </span>
+                  )}
+                  {!usernameCheckStatus.checking && usernameCheckStatus.available === false && (
+                    <span style={{ fontSize: '0.65rem', color: '#ef4444', fontWeight: 600 }}>
+                      ✗ Already taken
+                    </span>
+                  )}
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '2px' }}>
                   <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#a1a1aa' }}>@</span>
                   <input
@@ -840,7 +938,12 @@ export default function LoginPage({
                     spellCheck="false"
                     placeholder="letters & numbers only"
                     value={signUpUsername}
-                    onChange={(e) => handleUsernameChange(e.target.value, setSignUpUsername)}
+                    onChange={(e) => {
+                      setSignUpError('');
+                      handleUsernameChange(e.target.value, setSignUpUsername);
+                    }}
+                    onFocus={() => setIsSignUpUsernameFocused(true)}
+                    onBlur={() => setIsSignUpUsernameFocused(false)}
                     required
                     style={{
                       flex: 1,
@@ -854,11 +957,36 @@ export default function LoginPage({
                       textTransform: 'lowercase',
                     }}
                   />
-                  {signUpUsername.length >= 3 && (
+                  {usernameCheckStatus.checking && (
+                    <Loader2 size={15} color="#3897f0" className="animate-spin" />
+                  )}
+                  {!usernameCheckStatus.checking && usernameCheckStatus.available === true && (
                     <CheckCircle2 size={15} color="#22c55e" />
+                  )}
+                  {!usernameCheckStatus.checking && usernameCheckStatus.available === false && (
+                    <XCircle size={15} color="#ef4444" />
                   )}
                 </div>
               </div>
+
+              {/* Warning if username already taken */}
+              {!usernameCheckStatus.checking && usernameCheckStatus.available === false && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    color: '#ef4444',
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    marginTop: '-0.25rem',
+                    marginBottom: '0.1rem',
+                  }}
+                >
+                  <AlertCircle size={13} color="#ef4444" style={{ flexShrink: 0 }} />
+                  <span>{usernameCheckStatus.error || 'Username is already taken'}</span>
+                </div>
+              )}
 
               {/* 3. Password (Compulsory: 8+ chars, 1 letter, 1 number) */}
               <div
@@ -876,9 +1004,11 @@ export default function LoginPage({
                   <span style={{ fontSize: '0.65rem', color: '#8e8e93', fontWeight: 500, lineHeight: 1 }}>
                     Password <span style={{ color: '#ef4444' }}>*</span>
                   </span>
-                  <span style={{ fontSize: '0.6rem', color: pwIsValid ? '#22c55e' : '#71717a' }}>
-                    {pwIsValid ? '✓ Strong' : '8+ chars, 1 letter, 1 digit'}
-                  </span>
+                  {pwIsValid && (
+                    <span style={{ fontSize: '0.65rem', color: '#22c55e', fontWeight: 600 }}>
+                      ✓ Strong
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', marginTop: '2px' }}>
                   <input
@@ -1040,6 +1170,7 @@ export default function LoginPage({
                   setSignUpPhoneWarning(null);
                   setSignInError('');
                   setSignInPhoneWarning(null);
+                  setUsernameCheckStatus({ checking: false, available: null });
                   setMode('signin');
                 }}
                 style={{

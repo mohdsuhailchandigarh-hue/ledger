@@ -41,9 +41,19 @@ export default function DashboardTopBar({
   monthlyNet = 0,
 }: Props) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [currentName, setCurrentName] = useState(userName);
+  const [currentUsername, setCurrentUsername] = useState(userUsername);
   const [currentAvatar, setCurrentAvatar] = useState<string | null>(avatarUrl ?? null);
   const [imgError, setImgError] = useState(false);
   const [photoPalette, setPhotoPalette] = useState<ExtractedPalette | null>(null);
+
+  useEffect(() => {
+    setCurrentName(userName);
+  }, [userName]);
+
+  useEffect(() => {
+    setCurrentUsername(userUsername);
+  }, [userUsername]);
 
   useEffect(() => {
     setCurrentAvatar(avatarUrl ?? null);
@@ -112,7 +122,8 @@ export default function DashboardTopBar({
         className="dashboard-topbar-wrapper"
         style={{
           paddingTop: 'max(0.625rem, env(safe-area-inset-top, 0.625rem))',
-          paddingBottom: '1rem',
+          paddingBottom: 0,
+          marginBottom: '0.85rem',
         }}
       >
         {/* Elastic Overscroll Dense Blur Shield — covers rubber-band pull down up to 800px above */}
@@ -175,7 +186,7 @@ export default function DashboardTopBar({
                 textOverflow: 'ellipsis',
               }}
             >
-              {userName || userUsername || 'User'}
+              {currentName || currentUsername || 'User'}
             </h1>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -282,7 +293,7 @@ export default function DashboardTopBar({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={currentAvatar}
-                  alt={userName}
+                  alt={currentName}
                   onError={() => setImgError(true)}
                   style={{
                     width: '100%',
@@ -335,8 +346,12 @@ export default function DashboardTopBar({
       <UserProfileDrawer
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
-        userName={userName}
-        userUsername={userUsername}
+        userName={currentName}
+        userUsername={currentUsername}
+        onProfileUpdate={(newName, newUsername) => {
+          setCurrentName(newName);
+          setCurrentUsername(newUsername);
+        }}
         avatarUrl={currentAvatar}
         onAvatarUpdate={(url) => {
           setCurrentAvatar(url);

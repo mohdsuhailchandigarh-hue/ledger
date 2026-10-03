@@ -132,8 +132,7 @@ const signUpSchema = z.object({
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
-    .refine((val) => /[a-zA-Z]/.test(val), 'Password must contain at least one letter')
-    .refine((val) => /[0-9]/.test(val), 'Password must contain at least one number'),
+    .refine((val) => /[a-zA-Z]/.test(val) && /[0-9]/.test(val), 'Please choose a strong password'),
   confirm_password: z.string().min(1, 'Confirm password is required'),
 });
 
@@ -356,3 +355,47 @@ export async function changePasswordAction(
 
   return { success: true };
 }
+
+export async function checkSignUpUsernameAction(
+  username: string
+): Promise<{ available: boolean; error?: string }> {
+  const clean = username.trim().replace(/^@+/, '').toLowerCase();
+
+  if (clean.length < 3) {
+    return { available: false, error: 'Username must be at least 3 characters' };
+  }
+  if (clean.length > 30) {
+    return { available: false, error: 'Username must be at most 30 characters' };
+  }
+  if (!/^[a-z0-9]+$/.test(clean)) {
+    return { available: false, error: 'Only lowercase letters and numbers allowed' };
+  }
+
+  const adminUsername = (process.env.ADMIN_USERNAME || 'admin').trim().toLowerCase().replace(/^@+/, '');
+  if (clean === adminUsername) {
+    return { available: false, error: 'Username is already taken' };
+  }
+
+  try {
+    const { data: existingUser, error } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('username', clean)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking signup username:', error);
+      return { available: false, error: 'Error checking availability' };
+    }
+
+    if (existingUser) {
+      return { available: false, error: 'Username is already taken' };
+    }
+
+    return { available: true };
+  } catch (err) {
+    console.error('checkSignUpUsernameAction exception:', err);
+    return { available: false, error: 'Error checking availability' };
+  }
+}
+

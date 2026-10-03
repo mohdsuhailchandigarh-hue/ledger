@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import { getUserFromSession } from '@/lib/auth/session';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { resolveConnectionPeerName } from '@/lib/utils/connection';
+import { resolveConnectionPeerName, resolveSavedPeerName } from '@/lib/utils/connection';
 
 const createTxnSchema = z.object({
   connectionId: z.string().uuid(),
@@ -148,8 +148,8 @@ export async function getPendingActionsAction() {
     .from('transactions')
     .select(`
       *,
-      creator:users!transactions_creator_id_fkey(id, username, name, avatar_url),
-      counterparty:users!transactions_counterparty_id_fkey(id, username, name, avatar_url)
+      creator:users!transactions_creator_id_fkey(id, username, name, avatar_url, phone),
+      counterparty:users!transactions_counterparty_id_fkey(id, username, name, avatar_url, phone)
     `)
     .or(`and(counterparty_id.eq.${currentUser.id},status.eq.pending),and(creator_id.eq.${currentUser.id},status.eq.rejected)`);
 
@@ -157,7 +157,7 @@ export async function getPendingActionsAction() {
     query = query.not('connection_id', 'in', `(${deletedIds.join(',')})`);
   }
 
-  const [txnRes, reqRes] = await Promise.all([
+  const [txnRes, reqRes, userConnsRes] = await Promise.all([
     query
       .order('transaction_date', { ascending: false })
       .order('created_at', { ascending: false }),
@@ -167,35 +167,107 @@ export async function getPendingActionsAction() {
         id,
         status,
         created_at,
-        from_user:users!connection_requests_from_user_id_fkey(id, username, name, avatar_url),
-        to_user:users!connection_requests_to_user_id_fkey(id, username, name, avatar_url)
+        from_user:users!connection_requests_from_user_id_fkey(id, username, name, avatar_url, phone),
+        to_user:users!connection_requests_to_user_id_fkey(id, username, name, avatar_url, phone)
       `)
       .eq('to_user_id', currentUser.id)
       .eq('status', 'pending')
       .order('created_at', { ascending: false }),
+    supabaseAdmin
+      .from('connections')
+      .select('id, user_a_id, user_b_id, contact_name, contact_phone')
+      .or(`user_a_id.eq.${currentUser.id},user_b_id.eq.${currentUser.id}`),
   ]);
 
-  const txns = (txnRes.data ?? []).map((t) => ({
-    ...t,
-    itemType: 'transaction' as const,
-  }));
+  // Ensure any connection referenced by transactions is included in connections list
+  const txnConnIds = (txnRes.data ?? []).map((t: any) => t.connection_id).filter(Boolean);
+  const knownConnIds = new Set((userConnsRes.data ?? []).map((c: any) => c.id));
+  const missingConnIds = txnConnIds.filter((cid: string) => !knownConnIds.has(cid));
 
-  const reqs = (reqRes.data ?? []).map((r) => ({
-    id: r.id,
-    itemType: 'connection_request' as const,
-    status: r.status as 'pending',
-    creator_id: (r.from_user as any)?.id,
-    counterparty_id: currentUser.id,
-    creator: r.from_user as any,
-    counterparty: r.to_user as any,
-    from_user: r.from_user as any,
-    to_user: r.to_user as any,
-    amount: 0,
-    direction: 'get' as const,
-    note: null,
-    transaction_date: r.created_at,
-    created_at: r.created_at,
-  }));
+  let allConns = [...(userConnsRes.data ?? [])];
+  if (missingConnIds.length > 0) {
+    const { data: missingConns } = await supabaseAdmin
+      .from('connections')
+      .select('id, user_a_id, user_b_id, contact_name, contact_phone')
+      .in('id', missingConnIds);
+    if (missingConns && missingConns.length > 0) {
+      allConns = [...allConns, ...missingConns];
+    }
+  }
+
+  const txns = (txnRes.data ?? []).map((t: any) => {
+    const isCreator = t.creator_id === currentUser.id;
+    const peer = isCreator ? t.counterparty : t.creator;
+    const savedName = resolveSavedPeerName({
+      peer,
+      connectionId: t.connection_id,
+      currentUserId: currentUser.id,
+      connections: allConns,
+    });
+
+    let updatedCreator = t.creator ? { ...t.creator } : t.creator;
+    let updatedCounterparty = t.counterparty ? { ...t.counterparty } : t.counterparty;
+
+    if (savedName) {
+      if (isCreator && updatedCounterparty) {
+        updatedCounterparty = {
+          ...updatedCounterparty,
+          real_name: updatedCounterparty.name,
+          name: savedName,
+        };
+      } else if (!isCreator && updatedCreator) {
+        updatedCreator = {
+          ...updatedCreator,
+          real_name: updatedCreator.name,
+          name: savedName,
+        };
+      }
+    }
+
+    return {
+      ...t,
+      creator: updatedCreator,
+      counterparty: updatedCounterparty,
+      saved_contact_name: savedName || null,
+      itemType: 'transaction' as const,
+    };
+  });
+
+  const reqs = (reqRes.data ?? []).map((r: any) => {
+    const savedName = resolveSavedPeerName({
+      peer: r.from_user,
+      connectionId: null,
+      currentUserId: currentUser.id,
+      connections: allConns,
+    });
+
+    let updatedFromUser = r.from_user ? { ...r.from_user } : r.from_user;
+    if (savedName && updatedFromUser) {
+      updatedFromUser = {
+        ...updatedFromUser,
+        real_name: updatedFromUser.name,
+        name: savedName,
+      };
+    }
+
+    return {
+      id: r.id,
+      itemType: 'connection_request' as const,
+      status: r.status as 'pending',
+      creator_id: updatedFromUser?.id,
+      counterparty_id: currentUser.id,
+      creator: updatedFromUser,
+      counterparty: r.to_user,
+      from_user: updatedFromUser,
+      to_user: r.to_user,
+      amount: 0,
+      direction: 'get' as const,
+      note: null,
+      transaction_date: r.created_at,
+      created_at: r.created_at,
+      saved_contact_name: savedName || null,
+    };
+  });
 
   const allActions = [...reqs, ...txns];
 
@@ -505,7 +577,21 @@ export async function getLedgerDetailsAction(connectionId: string) {
     isPersonal,
   };
 
-  const transactions = (transactionsResult.data ?? []) as any[];
+  const transactions = ((transactionsResult.data ?? []) as any[]).map((t: any) => {
+    if (t.creator && t.creator.id !== currentUser.id && resolvedName) {
+      return {
+        ...t,
+        creator: { ...t.creator, real_name: t.creator.name, name: resolvedName },
+      };
+    }
+    if (t.counterparty && t.counterparty.id !== currentUser.id && resolvedName) {
+      return {
+        ...t,
+        counterparty: { ...t.counterparty, real_name: t.counterparty.name, name: resolvedName },
+      };
+    }
+    return t;
+  });
   const netBalance = Number((balanceResult.data as any)?.net_amount ?? 0);
   const hasMore = transactions.length === 50;
   const totalCount = countResult.count ?? transactions.length;
@@ -547,7 +633,23 @@ export async function loadMoreTransactionsAction(
     return { error: error.message, transactions: [], hasMore: false };
   }
 
-  const transactions = (data || []) as any[];
+  const { data: conn } = await supabaseAdmin
+    .from('connections')
+    .select('id, user_a_id, user_b_id, contact_name, contact_phone')
+    .eq('id', connectionId)
+    .maybeSingle();
+
+  const resolvedName = conn ? resolveConnectionPeerName(conn, currentUser.id) : null;
+
+  const transactions = ((data || []) as any[]).map((t: any) => {
+    if (t.creator && t.creator.id !== currentUser.id && resolvedName) {
+      return { ...t, creator: { ...t.creator, real_name: t.creator.name, name: resolvedName } };
+    }
+    if (t.counterparty && t.counterparty.id !== currentUser.id && resolvedName) {
+      return { ...t, counterparty: { ...t.counterparty, real_name: t.counterparty.name, name: resolvedName } };
+    }
+    return t;
+  });
   const hasMore = transactions.length === limit;
 
   return {

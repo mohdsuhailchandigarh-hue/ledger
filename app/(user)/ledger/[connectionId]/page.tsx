@@ -174,18 +174,35 @@ export default async function LedgerPage({
     }
   }
 
-  const transactions = transactionsResult.data ?? [];
+  const transactions = (transactionsResult.data ?? []).map((t: any) => {
+    if (t.creator && t.creator.id !== user.id && resolvedName) {
+      return {
+        ...t,
+        creator: { ...t.creator, real_name: t.creator.name, name: resolvedName },
+      };
+    }
+    if (t.counterparty && t.counterparty.id !== user.id && resolvedName) {
+      return {
+        ...t,
+        counterparty: { ...t.counterparty, real_name: t.counterparty.name, name: resolvedName },
+      };
+    }
+    return t;
+  });
   const netBalance = Number((balanceResult.data as any)?.net_amount ?? 0);
 
   return (
     <div
+      data-scrollable="true"
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 9999,
+        zIndex: 50,
         background: 'var(--bg-base)',
         overflowY: 'auto',
         WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        overscrollBehaviorY: 'contain',
       }}
     >
       <LedgerClient

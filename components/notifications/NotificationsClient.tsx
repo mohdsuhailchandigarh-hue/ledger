@@ -19,10 +19,11 @@ type Transaction = {
   transaction_date?: string | null;
   creator_id: string;
   counterparty_id: string;
-  creator: { id: string; name: string; username: string; avatar_url?: string | null };
-  counterparty: { id: string; name: string; username: string; avatar_url?: string | null };
-  from_user?: { id: string; name: string; username: string; avatar_url?: string | null };
-  to_user?: { id: string; name: string; username: string; avatar_url?: string | null };
+  saved_contact_name?: string | null;
+  creator: { id: string; name: string; username: string; avatar_url?: string | null; real_name?: string };
+  counterparty: { id: string; name: string; username: string; avatar_url?: string | null; real_name?: string };
+  from_user?: { id: string; name: string; username: string; avatar_url?: string | null; real_name?: string };
+  to_user?: { id: string; name: string; username: string; avatar_url?: string | null; real_name?: string };
 };
 
 function formatTxnDate(dateStr: string | null | undefined, fallback: string): string {
@@ -297,9 +298,13 @@ export default function NotificationsClient({ approvals, currentUserId }: Props)
               const isPending          = txn.status === 'pending';
               const isRejectedStatus   = txn.status === 'rejected';
               const iAmCreator         = txn.creator_id === currentUserId;
-              const peer               = isConnectionRequest
+              const rawPeer            = isConnectionRequest
                 ? (txn.from_user || txn.creator)
                 : (iAmCreator ? txn.counterparty : txn.creator);
+              const peer               = {
+                ...rawPeer,
+                name: txn.saved_contact_name || rawPeer?.name || 'Contact',
+              };
               const iWillGive          = iAmCreator ? txn.direction === 'give' : txn.direction === 'get';
               const amount             = Number(txn.amount || 0);
               const isEditing          = editingId === txn.id;

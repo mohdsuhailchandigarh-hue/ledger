@@ -206,6 +206,8 @@ export async function updateContactNameAction(
       try {
         namesMap = JSON.parse(conn.contact_name);
       } catch {}
+    } else if (conn.contact_name && conn.user_a_id) {
+      namesMap[conn.user_a_id] = conn.contact_name;
     }
     namesMap[currentUser.id] = trimmed;
 

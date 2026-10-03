@@ -5,7 +5,7 @@ import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { Check, X, AlertCircle, Edit2, RotateCcw, BellOff, Calendar, Sparkles, CheckCheck, UserPlus, Users } from 'lucide-react';
 import { respondToTransactionAction, handleRejectedTransactionAction } from '@/lib/actions/transaction.actions';
 import { respondToConnectionRequestAction } from '@/lib/actions/connection.actions';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 
 type PendingActionItem = {
@@ -19,10 +19,11 @@ type PendingActionItem = {
   transaction_date?: string | null;
   creator_id: string;
   counterparty_id: string;
-  creator: { id: string; name: string; username: string; avatar_url?: string | null };
-  counterparty: { id: string; name: string; username: string; avatar_url?: string | null };
-  from_user?: { id: string; name: string; username: string; avatar_url?: string | null };
-  to_user?: { id: string; name: string; username: string; avatar_url?: string | null };
+  saved_contact_name?: string | null;
+  creator: { id: string; name: string; username: string; avatar_url?: string | null; real_name?: string };
+  counterparty: { id: string; name: string; username: string; avatar_url?: string | null; real_name?: string };
+  from_user?: { id: string; name: string; username: string; avatar_url?: string | null; real_name?: string };
+  to_user?: { id: string; name: string; username: string; avatar_url?: string | null; real_name?: string };
 };
 
 function formatTxnDate(dateStr: string | null | undefined, fallback: string): string {
@@ -108,7 +109,9 @@ export default function GlobalPendingOverlay({
     return false;
   });
 
-  const isOpen = isExplicitlyOpen || (activeActions.length > 0 && !isSnoozedSession && !isDismissedByUser);
+  const pathname = usePathname();
+  const isDashboard = pathname === '/dashboard' || pathname === '/';
+  const isOpen = isExplicitlyOpen || (isDashboard && activeActions.length > 0 && !isSnoozedSession && !isDismissedByUser);
 
   // Lock background body scroll completely in place while popup is open
   useBodyScrollLock(isOpen);
@@ -428,9 +431,13 @@ export default function GlobalPendingOverlay({
   const isPending = currentTxn.status === 'pending';
   const isRejectedStatus = currentTxn.status === 'rejected';
   const iAmCreator = currentTxn.creator_id === currentUserId;
-  const peer = isConnectionRequest
+  const rawPeer = isConnectionRequest
     ? (currentTxn.from_user || currentTxn.creator)
     : (iAmCreator ? currentTxn.counterparty : currentTxn.creator);
+  const peer = {
+    ...rawPeer,
+    name: currentTxn.saved_contact_name || rawPeer?.name || 'Contact',
+  };
   const iWillGive = iAmCreator ? currentTxn.direction === 'give' : currentTxn.direction === 'get';
   const amount = Number(currentTxn.amount || 0);
   const isEditing = editingId === currentTxn.id;
@@ -530,6 +537,7 @@ export default function GlobalPendingOverlay({
             flexDirection: 'column',
             maxHeight: '92dvh',
             paddingBottom: activeActions.length > 1 ? 0 : 'max(1.125rem, env(safe-area-inset-bottom, 1.125rem))',
+            touchAction: 'none',
           }}
         >
           {/* Top luminous accent edge */}
@@ -704,7 +712,7 @@ export default function GlobalPendingOverlay({
                 onDragEnd={handleDragEnd}
                 style={{
                   padding: '0.875rem 1.125rem 0.5rem',
-                  touchAction: activeActions.length > 1 ? 'none' : 'auto',
+                  touchAction: 'none',
                   userSelect: 'none',
                 }}
               >
@@ -838,6 +846,9 @@ export default function GlobalPendingOverlay({
                             <>
                               <Calendar size={11} color="#64748b" />
                               <span>{formatTxnDate(currentTxn.transaction_date, currentTxn.created_at)}</span>
+                              {peer.username && (
+                                <span style={{ color: '#64748b', marginLeft: '4px' }}>· @{peer.username}</span>
+                              )}
                             </>
                           )}
                         </p>

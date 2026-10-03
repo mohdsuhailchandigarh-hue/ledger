@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -14,8 +14,17 @@ import {
   Trash2,
   Check,
   Crop,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  UserCheck,
+  Edit3,
 } from 'lucide-react';
 import { logoutAction } from '@/lib/actions/auth.actions';
+import {
+  checkUsernameAvailabilityAction,
+  updateProfileNameAndUsernameAction,
+} from '@/lib/actions/user.actions';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import { useSwipeDownDismiss } from '@/lib/hooks/useSwipeDownDismiss';
 import AvatarAdjustModal from '@/components/dashboard/AvatarAdjustModal';
@@ -28,6 +37,7 @@ type Props = {
   userUsername: string;
   avatarUrl?: string | null;
   onAvatarUpdate?: (newUrl: string | null) => void;
+  onProfileUpdate?: (newName: string, newUsername: string) => void;
   pendingActions?: number;
   netPosition?: number;
 };
@@ -42,6 +52,215 @@ function getInitials(name: string) {
     .slice(0, 2);
 }
 
+function SlideToSignOut() {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [maxDrag, setMaxDrag] = useState(240);
+  const [isCompleted, setIsCompleted] = useState(false);
+
+  const x = useMotionValue(0);
+  const textOpacity = useTransform(x, [0, maxDrag * 0.55], [1, 0]);
+  const fillWidth = useTransform(x, (currentX) => `${Math.max(48, currentX + 46)}px`);
+
+  // Dynamically calculate max draggable width based on container width
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (trackRef.current) {
+        // Track width - thumb width (42px) - 2 * padding (5px each side = 10px)
+        const trackWidth = trackRef.current.offsetWidth;
+        const availableDrag = Math.max(60, trackWidth - 42 - 10);
+        setMaxDrag(availableDrag);
+      }
+    };
+
+    updateDimensions();
+
+    const observer = new ResizeObserver(updateDimensions);
+    if (trackRef.current) {
+      observer.observe(trackRef.current);
+    }
+
+    window.addEventListener('resize', updateDimensions);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateDimensions);
+    };
+  }, []);
+
+  const handleDragEnd = () => {
+    if (isCompleted) return;
+    const currentX = x.get();
+    if (currentX >= maxDrag * 0.65) {
+      // User slid past the activation threshold -> trigger sign out
+      setIsCompleted(true);
+      animate(x, maxDrag, { type: 'spring', stiffness: 420, damping: 28 });
+      try {
+        if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+          navigator.vibrate(25);
+        }
+      } catch {}
+
+      // Submit logout form
+      setTimeout(() => {
+        formRef.current?.requestSubmit();
+      }, 150);
+    } else {
+      // Elastic spring back to origin
+      animate(x, 0, { type: 'spring', stiffness: 480, damping: 30 });
+    }
+  };
+
+  return (
+    <form ref={formRef} action={logoutAction} style={{ width: '100%', margin: 0, padding: 0 }}>
+      <input type="submit" style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
+      <div
+        ref={trackRef}
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: 52,
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.06) 0%, rgba(24, 26, 36, 0.88) 100%)',
+          border: '1px solid rgba(244, 63, 94, 0.22)',
+          boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(0, 0, 0, 0.25)',
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          boxSizing: 'border-box',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+        }}
+      >
+        {/* Dynamic Glow Fill following the thumb */}
+        <motion.div
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: fillWidth,
+            background: 'linear-gradient(90deg, rgba(244, 63, 94, 0.12) 0%, rgba(244, 63, 94, 0.32) 100%)',
+            borderRadius: '15px',
+            pointerEvents: 'none',
+          }}
+        />
+
+        {/* Shimmering Center Text: Slide to Sign Out */}
+        <motion.div
+          style={{
+            opacity: isCompleted ? 0 : textOpacity,
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            paddingLeft: '34px',
+            transition: 'opacity 0.12s ease',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '0.8125rem',
+              fontWeight: 700,
+              letterSpacing: '0.06em',
+              color: '#f43f5e',
+              textTransform: 'uppercase',
+              textShadow: '0 0 12px rgba(244, 63, 94, 0.35)',
+            }}
+          >
+            Slide to Sign Out
+          </span>
+          <motion.span
+            animate={{
+              x: [0, 5, 0],
+              opacity: [0.35, 1, 0.35],
+            }}
+            transition={{
+              duration: 1.6,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              color: '#f43f5e',
+              fontSize: '1rem',
+              fontWeight: 800,
+              letterSpacing: '-2px',
+            }}
+          >
+            ›››
+          </motion.span>
+        </motion.div>
+
+        {/* Completed State: Signing out indicator */}
+        {isCompleted && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              color: '#ffffff',
+              fontSize: '0.875rem',
+              fontWeight: 700,
+              letterSpacing: '0.02em',
+              pointerEvents: 'none',
+              zIndex: 3,
+            }}
+          >
+            <Loader2 size={16} className="animate-spin" color="#f43f5e" />
+            <span style={{ color: '#f43f5e' }}>Signing Out...</span>
+          </motion.div>
+        )}
+
+        {/* Draggable Slider Thumb */}
+        <motion.div
+          drag={isCompleted ? false : 'x'}
+          dragConstraints={{ left: 0, right: maxDrag }}
+          dragElastic={0.06}
+          dragMomentum={false}
+          onDragEnd={handleDragEnd}
+          onPointerDown={(e) => e.stopPropagation()}
+          whileHover={isCompleted ? undefined : { scale: 1.04 }}
+          whileTap={isCompleted ? undefined : { scale: 0.96 }}
+          style={{
+            x,
+            width: 42,
+            height: 42,
+            marginLeft: 5,
+            borderRadius: '13px',
+            background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 55%, #be123c 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.35)',
+            boxShadow:
+              '0 4px 14px rgba(244, 63, 94, 0.45), 0 2px 6px rgba(0, 0, 0, 0.5), inset 0 1px 1.5px rgba(255, 255, 255, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: isCompleted ? 'wait' : 'grab',
+            zIndex: 4,
+            touchAction: 'none',
+            flexShrink: 0,
+          }}
+        >
+          {isCompleted ? (
+            <Loader2 size={18} className="animate-spin" color="#ffffff" />
+          ) : (
+            <LogOut size={18} color="#ffffff" strokeWidth={2.4} />
+          )}
+        </motion.div>
+      </div>
+    </form>
+  );
+}
+
 export default function UserProfileDrawer({
   isOpen,
   onClose,
@@ -49,6 +268,7 @@ export default function UserProfileDrawer({
   userUsername,
   avatarUrl,
   onAvatarUpdate,
+  onProfileUpdate,
   pendingActions = 0,
   netPosition = 0,
 }: Props) {
@@ -58,11 +278,35 @@ export default function UserProfileDrawer({
   const backdropRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const [currentName, setCurrentName] = useState(userName);
+  const [currentUsername, setCurrentUsername] = useState(userUsername);
+
+  useEffect(() => {
+    setCurrentName(userName);
+  }, [userName]);
+
+  useEffect(() => {
+    setCurrentUsername(userUsername);
+  }, [userUsername]);
+
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
 
+  // Edit Name & Username modal state
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editName, setEditName] = useState(userName);
+  const [editUsername, setEditUsername] = useState(userUsername);
+  const [usernameStatus, setUsernameStatus] = useState<{
+    state: 'idle' | 'checking' | 'valid' | 'taken' | 'invalid';
+    message?: string;
+    error?: string;
+  }>({ state: 'valid', message: 'Current username' });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState(false);
+
   const { isDismissing, dismissSheet, handleHeaderPointerDown } = useSwipeDownDismiss({
-    isOpen: isOpen && !isActionSheetOpen && !isAdjustModalOpen,
+    isOpen: isOpen && !isActionSheetOpen && !isAdjustModalOpen && !isEditProfileOpen,
     onClose,
     sheetRef,
     backdropRef,
@@ -88,7 +332,7 @@ export default function UserProfileDrawer({
     setCurrentAvatar(avatarUrl ?? null);
   }, [avatarUrl]);
 
-  const initials = getInitials(userName);
+  const initials = getInitials(currentName);
   const displayImage = previewUrl || currentAvatar;
 
   // Real-time photo color reflection extraction
@@ -110,8 +354,135 @@ export default function UserProfileDrawer({
 
   const activePalette = photoPalette || DEFAULT_PALETTE;
 
+  // Debounced real-time database search for username availability
+  useEffect(() => {
+    if (!isEditProfileOpen) return;
+
+    const raw = editUsername.trim().replace(/^@+/, '');
+
+    if (!raw) {
+      setUsernameStatus({ state: 'invalid', error: 'Username cannot be empty' });
+      return;
+    }
+
+    if (raw.length < 3) {
+      setUsernameStatus({ state: 'invalid', error: 'Username must be at least 3 characters' });
+      return;
+    }
+
+    if (raw.length > 30) {
+      setUsernameStatus({ state: 'invalid', error: 'Username must be at most 30 characters' });
+      return;
+    }
+
+    if (!/^[a-z0-9_]+$/i.test(raw)) {
+      setUsernameStatus({ state: 'invalid', error: 'Only letters, numbers, and underscores allowed' });
+      return;
+    }
+
+    // If it matches their existing username
+    if (raw.toLowerCase() === currentUsername.toLowerCase()) {
+      setUsernameStatus({ state: 'valid', message: 'Current username' });
+      return;
+    }
+
+    setUsernameStatus({ state: 'checking' });
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await checkUsernameAvailabilityAction(raw);
+        if (res.available) {
+          setUsernameStatus({
+            state: 'valid',
+            message: res.isCurrent ? 'Current username' : 'Username is available',
+          });
+        } else {
+          setUsernameStatus({
+            state: 'taken',
+            error: res.error || 'Username is already taken',
+          });
+        }
+      } catch {
+        setUsernameStatus({
+          state: 'invalid',
+          error: 'Failed to verify username',
+        });
+      }
+    }, 280);
+
+    return () => clearTimeout(timer);
+  }, [editUsername, isEditProfileOpen, currentUsername]);
+
   // Lock background scroll when drawer or action sheet is open
-  useBodyScrollLock(isOpen || isActionSheetOpen || isAdjustModalOpen);
+  useBodyScrollLock(isOpen || isActionSheetOpen || isAdjustModalOpen || isEditProfileOpen);
+
+  const handleOpenEditProfile = () => {
+    setEditName(currentName);
+    setEditUsername(currentUsername);
+    setUsernameStatus({ state: 'valid', message: 'Current username' });
+    setProfileSaveError(null);
+    setProfileSaveSuccess(false);
+    setIsEditProfileOpen(true);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSavingProfile) return;
+
+    const cleanName = editName.trim();
+    const cleanUsername = editUsername.trim().replace(/^@+/, '').toLowerCase();
+
+    if (!cleanName) {
+      setProfileSaveError('Please enter your display name');
+      return;
+    }
+
+    if (usernameStatus.state === 'taken') {
+      setProfileSaveError('Username is already taken. Please choose another username.');
+      return;
+    }
+
+    if (usernameStatus.state === 'invalid') {
+      setProfileSaveError(usernameStatus.error || 'Please enter a valid username');
+      return;
+    }
+
+    if (usernameStatus.state === 'checking') {
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setProfileSaveError(null);
+
+    try {
+      const res = await updateProfileNameAndUsernameAction({
+        name: cleanName,
+        username: cleanUsername,
+      });
+
+      if (res.error || !res.success) {
+        setProfileSaveError(res.error || 'Failed to update profile');
+        setIsSavingProfile(false);
+        return;
+      }
+
+      setCurrentName(res.name || cleanName);
+      setCurrentUsername(res.username || cleanUsername);
+      onProfileUpdate?.(res.name || cleanName, res.username || cleanUsername);
+
+      setProfileSaveSuccess(true);
+      router.refresh();
+
+      setTimeout(() => {
+        setIsSavingProfile(false);
+        setIsEditProfileOpen(false);
+        setProfileSaveSuccess(false);
+      }, 500);
+    } catch (err: any) {
+      setProfileSaveError(err?.message || 'Failed to update profile');
+      setIsSavingProfile(false);
+    }
+  };
 
   // When user taps the profile circle or camera badge
   const handleAvatarTap = () => {
@@ -131,6 +502,15 @@ export default function UserProfileDrawer({
   const handleOpenUploadNew = () => {
     setIsActionSheetOpen(false);
     fileInputRef.current?.click();
+  };
+
+  // Share app login link via WhatsApp
+  const handleShareWhatsApp = () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const loginUrl = `${origin}/login`;
+    const message = `Manage and track shared expenses easily with Shared Ledger!\n\nAccess or sign up here: ${loginUrl}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 
   // When user selects a new image file from file picker
@@ -675,7 +1055,7 @@ export default function UserProfileDrawer({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={displayImage}
-                      alt={userName}
+                      alt={currentName}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -845,20 +1225,45 @@ export default function UserProfileDrawer({
                   cursor: 'grab',
                 }}
               >
-                <h3
-                  style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 700,
-                    color: 'var(--text-primary)',
-                    letterSpacing: '-0.025em',
-                    lineHeight: 1.25,
-                    margin: 0,
-                  }}
-                >
-                  {userName || 'User'}
-                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <h3
+                    style={{
+                      fontSize: '1.25rem',
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      letterSpacing: '-0.025em',
+                      lineHeight: 1.25,
+                      margin: 0,
+                    }}
+                  >
+                    {currentName || 'User'}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleOpenEditProfile}
+                    title="Change Name & Username"
+                    aria-label="Change Name & Username"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '8px',
+                      padding: '4px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--text-secondary)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Edit3 size={13} />
+                  </button>
+                </div>
 
-                <div
+                <button
+                  type="button"
+                  onClick={handleOpenEditProfile}
+                  title="Change username"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -868,6 +1273,7 @@ export default function UserProfileDrawer({
                     borderRadius: '9999px',
                     background: 'rgba(255, 255, 255, 0.04)',
                     border: '1px solid rgba(255, 255, 255, 0.07)',
+                    cursor: 'pointer',
                   }}
                 >
                   <span
@@ -878,9 +1284,9 @@ export default function UserProfileDrawer({
                       letterSpacing: '0.01em',
                     }}
                   >
-                    @{userUsername}
+                    @{currentUsername}
                   </span>
-                </div>
+                </button>
 
                 {/* Dynamic Photo Reflection Themed Action Button */}
                 <button
@@ -1044,6 +1450,51 @@ export default function UserProfileDrawer({
                   <ChevronRight size={16} color="var(--text-muted)" />
                 </button>
 
+                {/* Option 2: Change Name & Username */}
+                <button
+                  type="button"
+                  onClick={handleOpenEditProfile}
+                  className="hover-bg-elevated"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.9375rem 1.125rem',
+                    borderRadius: '16px',
+                    background: 'rgba(255, 255, 255, 0.025)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    color: 'var(--text-primary)',
+                    transition: 'all 0.15s ease',
+                    width: '100%',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: '12px',
+                        background: 'rgba(99, 102, 241, 0.14)',
+                        border: '1px solid rgba(99, 102, 241, 0.25)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <UserCheck size={18} color="#818cf8" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>Change Name & Username</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                        Update your display name and handle
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} color="var(--text-muted)" />
+                </button>
+
                 {/* Option 2: Change Password */}
                 <Link
                   href="/login?tab=change"
@@ -1087,48 +1538,66 @@ export default function UserProfileDrawer({
                   <ChevronRight size={16} color="var(--text-muted)" />
                 </Link>
 
-                {/* Subtle Divider */}
-                <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '0.375rem 0' }} />
-
-                {/* Sign Out Button */}
-                <form action={logoutAction} style={{ width: '100%' }}>
-                  <button
-                    type="submit"
-                    className="hover-signout"
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.875rem',
-                      padding: '0.9375rem 1.125rem',
-                      borderRadius: '16px',
-                      background: 'rgba(244, 63, 94, 0.06)',
-                      border: '1px solid rgba(244, 63, 94, 0.18)',
-                      color: '#f43f5e',
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      fontWeight: 600,
-                      textAlign: 'left',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
+                {/* Option 4: Share App on WhatsApp */}
+                <button
+                  type="button"
+                  onClick={handleShareWhatsApp}
+                  className="hover-bg-elevated"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.9375rem 1.125rem',
+                    borderRadius: '16px',
+                    background: 'rgba(255, 255, 255, 0.025)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    color: 'var(--text-primary)',
+                    transition: 'all 0.15s ease',
+                    width: '100%',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
                     <div
                       style={{
                         width: 38,
                         height: 38,
                         borderRadius: '12px',
-                        background: 'rgba(244, 63, 94, 0.14)',
-                        border: '1px solid rgba(244, 63, 94, 0.25)',
+                        background: 'rgba(37, 211, 102, 0.14)',
+                        border: '1px solid rgba(37, 211, 102, 0.28)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        color: '#25D366',
+                        flexShrink: 0,
                       }}
                     >
-                      <LogOut size={18} color="#f43f5e" />
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+                      </svg>
                     </div>
-                    <span>Sign Out</span>
-                  </button>
-                </form>
+                    <div>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>Share App on WhatsApp</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                        Share Shared Ledger login link
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} color="var(--text-muted)" />
+                </button>
+
+                {/* Subtle Divider */}
+                <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '0.375rem 0' }} />
+
+                {/* Premium Slideable Sign Out Button */}
+                <SlideToSignOut />
               </div>
             </motion.div>
           </>
@@ -1329,6 +1798,483 @@ export default function UserProfileDrawer({
         onClose={() => setIsAdjustModalOpen(false)}
         onConfirm={handleCropConfirm}
       />
+
+      {/* Change Name & Username Bottom Sheet Modal */}
+      <AnimatePresence>
+        {isEditProfileOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => !isSavingProfile && setIsEditProfileOpen(false)}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0, 0, 0, 0.6)',
+                backdropFilter: 'blur(30px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+                zIndex: 110,
+              }}
+            />
+
+            {/* Modal Card / Bottom Sheet */}
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                position: 'fixed',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                maxWidth: 480,
+                margin: '0 auto',
+                zIndex: 112,
+                background: 'var(--bg-surface)',
+                borderTop: '1px solid rgba(255, 255, 255, 0.14)',
+                borderLeft: '1px solid rgba(255, 255, 255, 0.07)',
+                borderRight: '1px solid rgba(255, 255, 255, 0.07)',
+                borderTopLeftRadius: '24px',
+                borderTopRightRadius: '24px',
+                boxShadow: '0 -24px 60px rgba(0, 0, 0, 0.85)',
+                padding: '0.875rem 1.25rem max(1.25rem, env(safe-area-inset-bottom, 1.25rem))',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* Drag Handle */}
+              <div
+                style={{
+                  width: 44,
+                  height: 5,
+                  borderRadius: 3,
+                  background: 'rgba(255, 255, 255, 0.28)',
+                  margin: '0 auto 0.75rem',
+                }}
+              />
+
+              {/* Header */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingBottom: '0.875rem',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  marginBottom: '1.125rem',
+                }}
+              >
+                <div>
+                  <h4
+                    style={{
+                      margin: 0,
+                      fontSize: '1.125rem',
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      letterSpacing: '-0.02em',
+                    }}
+                  >
+                    Change Name & Username
+                  </h4>
+                  <p
+                    style={{
+                      margin: '3px 0 0 0',
+                      fontSize: '0.75rem',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    Update your public display name and unique handle
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditProfileOpen(false)}
+                  disabled={isSavingProfile}
+                  aria-label="Close"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-secondary)',
+                    cursor: isSavingProfile ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* Display Name Input */}
+                <div>
+                  <label
+                    htmlFor="edit-display-name-input"
+                    style={{
+                      display: 'block',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                      marginBottom: '0.375rem',
+                    }}
+                  >
+                    Display Name
+                  </label>
+                  <input
+                    id="edit-display-name-input"
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Enter your name"
+                    disabled={isSavingProfile}
+                    maxLength={50}
+                    style={{
+                      width: '100%',
+                      height: '46px',
+                      padding: '0 0.875rem',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.9375rem',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'border 0.2s ease',
+                    }}
+                  />
+                </div>
+
+                {/* Username Input with Live Search Indicator */}
+                <div>
+                  <label
+                    htmlFor="edit-username-input"
+                    style={{
+                      display: 'block',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                      marginBottom: '0.375rem',
+                    }}
+                  >
+                    Username
+                  </label>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      position: 'relative',
+                      width: '100%',
+                      height: '46px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border:
+                        usernameStatus.state === 'taken'
+                          ? '1.5px solid #f43f5e'
+                          : usernameStatus.state === 'valid'
+                          ? '1.5px solid #10b981'
+                          : usernameStatus.state === 'checking'
+                          ? '1.5px solid #38bdf8'
+                          : usernameStatus.state === 'invalid'
+                          ? '1.5px solid #fb7185'
+                          : '1px solid rgba(255, 255, 255, 0.12)',
+                      boxSizing: 'border-box',
+                      padding: '0 0.875rem',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '0.9375rem',
+                        fontWeight: 600,
+                        color: 'var(--text-muted)',
+                        userSelect: 'none',
+                        marginRight: '3px',
+                      }}
+                    >
+                      @
+                    </span>
+                    <input
+                      id="edit-username-input"
+                      type="text"
+                      value={editUsername.replace(/^@+/, '')}
+                      onChange={(e) =>
+                        setEditUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+                      }
+                      placeholder="username"
+                      disabled={isSavingProfile}
+                      maxLength={30}
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      style={{
+                        flex: 1,
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.9375rem',
+                        outline: 'none',
+                        padding: 0,
+                        margin: 0,
+                      }}
+                    />
+
+                    {/* Live Indicator Icon */}
+                    <div style={{ marginLeft: '8px', display: 'flex', alignItems: 'center' }}>
+                      {usernameStatus.state === 'checking' && (
+                        <Loader2 size={18} className="animate-spin" color="#38bdf8" />
+                      )}
+                      {usernameStatus.state === 'taken' && (
+                        <div
+                          title="Username is already taken"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            background: 'rgba(244, 63, 94, 0.15)',
+                          }}
+                        >
+                          <XCircle size={18} color="#f43f5e" />
+                        </div>
+                      )}
+                      {usernameStatus.state === 'valid' && (
+                        <div
+                          title="Username is available"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                          }}
+                        >
+                          <CheckCircle2 size={18} color="#10b981" />
+                        </div>
+                      )}
+                      {usernameStatus.state === 'invalid' && (
+                        <div
+                          title={usernameStatus.error || 'Invalid username'}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            background: 'rgba(251, 113, 133, 0.15)',
+                          }}
+                        >
+                          <XCircle size={18} color="#fb7185" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Status Helper Message */}
+                  <div style={{ marginTop: '5px', minHeight: '18px' }}>
+                    {usernameStatus.state === 'checking' && (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          color: '#38bdf8',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        Checking availability in database...
+                      </span>
+                    )}
+                    {usernameStatus.state === 'taken' && (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          color: '#f43f5e',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        <X size={12} strokeWidth={3} />
+                        {usernameStatus.error || 'Username is already taken'}
+                      </span>
+                    )}
+                    {usernameStatus.state === 'valid' && (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          color: '#34d399',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        <Check size={12} strokeWidth={3} />
+                        {usernameStatus.message || 'Username is available'}
+                      </span>
+                    )}
+                    {usernameStatus.state === 'invalid' && (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          color: '#fb7185',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                        }}
+                      >
+                        <X size={12} strokeWidth={3} />
+                        {usernameStatus.error}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Error Banner */}
+                {profileSaveError && (
+                  <div
+                    style={{
+                      padding: '0.625rem 0.875rem',
+                      background: 'rgba(244, 63, 94, 0.1)',
+                      border: '1px solid rgba(244, 63, 94, 0.25)',
+                      borderRadius: '10px',
+                      color: '#f87171',
+                      fontSize: '0.8125rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <XCircle size={15} color="#f43f5e" />
+                    <span>{profileSaveError}</span>
+                  </div>
+                )}
+
+                {/* Success Banner */}
+                {profileSaveSuccess && (
+                  <div
+                    style={{
+                      padding: '0.625rem 0.875rem',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      borderRadius: '10px',
+                      color: '#34d399',
+                      fontSize: '0.8125rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <CheckCircle2 size={15} color="#10b981" />
+                    <span>Profile updated successfully!</span>
+                  </div>
+                )}
+
+                {/* Buttons */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.375rem' }}>
+                  <motion.button
+                    type="submit"
+                    disabled={
+                      isSavingProfile ||
+                      !editName.trim() ||
+                      usernameStatus.state === 'checking' ||
+                      usernameStatus.state === 'taken' ||
+                      usernameStatus.state === 'invalid' ||
+                      (editName.trim() === currentName &&
+                        editUsername.trim().replace(/^@+/, '').toLowerCase() === currentUsername.toLowerCase())
+                    }
+                    whileTap={{ scale: 0.98 }}
+                    style={{
+                      width: '100%',
+                      height: 48,
+                      borderRadius: '14px',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #065DE8 0%, #3897f0 100%)',
+                      color: '#ffffff',
+                      fontSize: '0.9375rem',
+                      fontWeight: 700,
+                      cursor:
+                        isSavingProfile ||
+                        !editName.trim() ||
+                        usernameStatus.state === 'checking' ||
+                        usernameStatus.state === 'taken' ||
+                        usernameStatus.state === 'invalid' ||
+                        (editName.trim() === currentName &&
+                          editUsername.trim().replace(/^@+/, '').toLowerCase() === currentUsername.toLowerCase())
+                          ? 'not-allowed'
+                          : 'pointer',
+                      opacity:
+                        isSavingProfile ||
+                        !editName.trim() ||
+                        usernameStatus.state === 'checking' ||
+                        usernameStatus.state === 'taken' ||
+                        usernameStatus.state === 'invalid' ||
+                        (editName.trim() === currentName &&
+                          editUsername.trim().replace(/^@+/, '').toLowerCase() === currentUsername.toLowerCase())
+                          ? 0.55
+                          : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 18px rgba(6, 93, 232, 0.35)',
+                      transition: 'opacity 0.15s ease',
+                    }}
+                  >
+                    {isSavingProfile ? (
+                      <>
+                        <Loader2 size={17} className="animate-spin" />
+                        <span>Saving Changes...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={17} strokeWidth={2.4} />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </motion.button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsEditProfileOpen(false)}
+                    disabled={isSavingProfile}
+                    style={{
+                      width: '100%',
+                      height: 44,
+                      borderRadius: '14px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: 'var(--text-secondary)',
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      cursor: isSavingProfile ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }
