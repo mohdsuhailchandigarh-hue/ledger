@@ -683,53 +683,59 @@ export default function UserProfileDrawer({
 
   return (
     <>
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              ref={backdropRef}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={isDismissing ? undefined : { opacity: 0 }}
-              transition={{ duration: 0.22 }}
-              onClick={dismissSheet}
-              style={{
-                position: 'fixed',
-                inset: 0,
-                background: 'rgba(0, 0, 0, 0.45)',
-                backdropFilter: 'blur(30px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(30px) saturate(180%)',
-                zIndex: 100,
-              }}
-            />
+      {isOpen && (
+        <div
+          key="profile-drawer-portal"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            pointerEvents: isDismissing ? 'none' : 'auto',
+          }}
+        >
+          {/* Backdrop */}
+          <div
+            ref={backdropRef}
+            onClick={dismissSheet}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.45)',
+              backdropFilter: 'blur(30px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+              zIndex: 100,
+              animation: 'sheetBackdropFadeIn 0.22s ease-out forwards',
+            }}
+          />
 
-            {/* Hidden File Input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-            />
+          {/* Hidden File Input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
 
-            {/* Drawer Sheet */}
-            <motion.div
-              ref={sheetRef}
-              initial={{ y: 'calc(100% + 50px)', opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={isDismissing ? undefined : { y: 'calc(100% + 50px)', opacity: 0 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              onPointerDown={handleHeaderPointerDown}
-              className="profile-drawer-sheet"
-              style={{
-                position: 'fixed',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                maxWidth: 480,
-                margin: '0 auto',
-                zIndex: 101,
+          {/* Drawer Sheet */}
+          <div
+            ref={sheetRef}
+            onPointerDown={handleHeaderPointerDown}
+            onAnimationEnd={(e) => {
+              if (e.target === sheetRef.current) {
+                e.currentTarget.style.animation = 'none';
+              }
+            }}
+            className="profile-drawer-sheet"
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              maxWidth: 480,
+              margin: '0 auto',
+              zIndex: 101,
+              animation: 'sheetSlideUpModal 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards',
                 pointerEvents: isDismissing ? 'none' : 'auto',
                 background: 'var(--bg-surface)',
                 borderTop: '1px solid rgba(255, 255, 255, 0.1)',
@@ -1389,7 +1395,7 @@ export default function UserProfileDrawer({
                 <button
                   type="button"
                   onClick={() => {
-                    onClose();
+                    dismissSheet();
                     window.dispatchEvent(new CustomEvent('open-pending-approvals'));
                   }}
                   className="hover-bg-elevated"
@@ -1498,7 +1504,7 @@ export default function UserProfileDrawer({
                 {/* Option 2: Change Password */}
                 <Link
                   href="/login?tab=change"
-                  onClick={onClose}
+                  onClick={dismissSheet}
                   className="hover-bg-elevated"
                   style={{
                     display: 'flex',
@@ -1599,10 +1605,9 @@ export default function UserProfileDrawer({
                 {/* Premium Slideable Sign Out Button */}
                 <SlideToSignOut />
               </div>
-            </motion.div>
-          </>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* iOS-Inspired Bottom Action Sheet for Picture Options */}
       <AnimatePresence>

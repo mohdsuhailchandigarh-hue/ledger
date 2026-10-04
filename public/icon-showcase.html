@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cross-Platform App Icon & Launch Screen Showcase</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #080a0f;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      max-width: 650px;
+    }
+    h1 { font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    p.subtitle { font-size: 14px; color: #94a3b8; line-height: 1.5; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 32px;
+      max-width: 1200px;
+      width: 100%;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: #121622;
+      border: 1px solid #202738;
+      border-radius: 20px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-container {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 0;
+      min-height: 220px;
+    }
+    
+    /* Device Mockup: Splash Screen */
+    .phone-mockup {
+      width: 180px;
+      height: 320px;
+      background: #141824;
+      border-radius: 28px;
+      border: 4px solid #2a334a;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .phone-notch {
+      position: absolute;
+      top: 8px;
+      width: 60px;
+      height: 12px;
+      background: #090c12;
+      border-radius: 6px;
+    }
+    .phone-app-name {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #ffffff;
+    }
+    .phone-loader {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-top-color: #0c75fb;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Home Screen App Grid Mockup */
+    .home-grid {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      justify-content: center;
+    }
+    .app-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .app-icon-ios {
+      width: 68px;
+      height: 68px;
+      border-radius: 16px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.45);
+      overflow: hidden;
+    }
+    .app-icon-android-circle {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.45);
+      overflow: hidden;
+    }
+    .app-icon-android-squircle {
+      width: 68px;
+      height: 68px;
+      border-radius: 20px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.45);
+      overflow: hidden;
+    }
+    .app-label {
+      font-size: 11px;
+      color: #cbd5e1;
+      font-weight: 500;
+    }
+
+    .desc {
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Cross-Platform Sharp Icon & Splash Engine</h1>
+    <p class="subtitle">Ultra-sharp vector rendering verified across iOS Home Screen, Android Adaptive Launchers, and Mobile Launch/Splash Screen.</p>
+  </header>
+
+  <div class="grid">
+    <!-- 1. Android / iOS Launching Screen -->
+    <div class="card">
+      <div class="card-title">📱 Launching / Splash Screen</div>
+      <div class="preview-container">
+        <div class="phone-mockup">
+          <div class="phone-notch"></div>
+          <img src="/splash-icon.svg" style="width: 72px; height: 72px;" alt="Splash Icon">
+          <div class="phone-app-name">Shared Ledger</div>
+          <div class="phone-loader"></div>
+        </div>
+      </div>
+      <div class="desc">Mobile launch / cold start screen with centered high-contrast symbol on dark surface.</div>
+    </div>
+
+    <!-- 2. iOS Home Screen Launcher -->
+    <div class="card">
+      <div class="card-title">🍎 iOS Home Screen Icon</div>
+      <div class="preview-container">
+        <div class="home-grid">
+          <div class="app-item">
+            <div class="app-icon-ios">
+              <img src="/apple-touch-icon.svg" style="width: 100%; height: 100%;" alt="iOS Dark">
+            </div>
+            <div class="app-label">Ledger</div>
+          </div>
+          <div class="app-item">
+            <div class="app-icon-ios">
+              <img src="/icon-light.svg" style="width: 100%; height: 100%;" alt="iOS Light">
+            </div>
+            <div class="app-label">Ledger (Light)</div>
+          </div>
+        </div>
+      </div>
+      <div class="desc">Apple iOS super-ellipse corner curves (`180×180`) with crisp high-DPI resolution.</div>
+    </div>
+
+    <!-- 3. Android Adaptive Launchers (Circle & Squircle) -->
+    <div class="card">
+      <div class="card-title">🤖 Android Adaptive Icons</div>
+      <div class="preview-container">
+        <div class="home-grid">
+          <div class="app-item">
+            <div class="app-icon-android-circle">
+              <img src="/icon-maskable.svg" style="width: 100%; height: 100%;" alt="Android Circle">
+            </div>
+            <div class="app-label">Google Pixel</div>
+          </div>
+          <div class="app-item">
+            <div class="app-icon-android-squircle">
+              <img src="/icon-maskable.svg" style="width: 100%; height: 100%;" alt="Samsung Squircle">
+            </div>
+            <div class="app-label">Samsung OneUI</div>
+          </div>
+        </div>
+      </div>
+      <div class="desc">Android 66% safe area maskable standard. Zero cropping on any OEM launcher.</div>
+    </div>
+  </div>
+</body>
+</html>

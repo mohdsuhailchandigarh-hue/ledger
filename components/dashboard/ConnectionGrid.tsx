@@ -180,16 +180,6 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
     return () => window.removeEventListener('popstate', handlePopState);
   }, [router]);
 
-  useEffect(() => {
-    if (!activeLedger) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        closeLedger();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeLedger, closeLedger]);
 
   const reloadActiveLedger = useCallback(async () => {
     if (!activeLedger) return;

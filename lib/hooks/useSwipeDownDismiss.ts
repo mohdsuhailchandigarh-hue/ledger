@@ -22,107 +22,7 @@ export function useSwipeDownDismiss({
   headerSelector = '[data-drag-header="true"], [data-drag-handle="true"], .sheet-handle, .popup-glass-header, .drawer-handle, .modal-header',
   threshold = 120,
 }: UseSwipeDownDismissOptions) {
-  const [isDismissing, setIsDismissing] = useState(false);
   const isDismissingRef = useRef(false);
-
-  // Lock background scroll when open and not dismissing
-  useBodyScrollLock(isOpen && !isDismissing);
-
-  // Guaranteed cleanup on unmount or when closed
-  useEffect(() => {
-    if (isOpen) {
-      isDismissingRef.current = false;
-      setIsDismissing(false);
-    } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    };
-  }, []);
-
-  // Helper to directly translate sheet and dim backdrop (zero React re-render overhead)
-  const applySheetTranslate = useCallback((yOffset: number) => {
-    const clampedY = Math.max(0, yOffset);
-    if (sheetRef.current) {
-      sheetRef.current.style.transform = `translate3d(0, ${clampedY}px, 0)`;
-    }
-    if (backdropRef.current) {
-      const opacity = Math.max(0, 1 - clampedY / 420);
-      backdropRef.current.style.opacity = `${opacity}`;
-    }
-  }, [sheetRef, backdropRef]);
-
-  // Smooth dismiss animation down to bottom of screen with immediate pointer-events & scroll release
-  const dismissSheet = useCallback(() => {
-    if (isDismissingRef.current) return;
-    isDismissingRef.current = true;
-    setIsDismissing(true);
-
-    // Immediately restore body overflow so dashboard can be used and scrolled immediately
-    document.body.style.overflow = '';
-    document.documentElement.style.overflow = '';
-
-    if (sheetRef.current) {
-      sheetRef.current.style.transition = 'transform 0.22s cubic-bezier(0.32, 0.72, 0, 1)';
-      sheetRef.current.style.transform = 'translate3d(0, 100dvh, 0)';
-    }
-    if (backdropRef.current) {
-      backdropRef.current.style.transition = 'opacity 0.2s ease-out';
-      backdropRef.current.style.opacity = '0';
-    }
-
-    setTimeout(() => {
-      // Hide completely before unmounting to prevent any 1-frame Framer Motion snapback/flash
-      if (sheetRef.current) {
-        sheetRef.current.style.display = 'none';
-      }
-      if (backdropRef.current) {
-        backdropRef.current.style.display = 'none';
-      }
-      onClose();
-    }, 220);
-  }, [onClose, sheetRef, backdropRef]);
-
-  // Smooth spring bounce back to top (0px)
-  const snapBackSheet = useCallback(() => {
-    if (isDismissingRef.current) return;
-
-    if (sheetRef.current) {
-      sheetRef.current.style.transition = 'transform 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.1)';
-      sheetRef.current.style.transform = 'translate3d(0, 0px, 0)';
-    }
-    if (backdropRef.current) {
-      backdropRef.current.style.transition = 'opacity 0.28s ease-out';
-      backdropRef.current.style.opacity = '1';
-    }
-
-    setTimeout(() => {
-      if (sheetRef.current && !isDismissingRef.current) {
-        sheetRef.current.style.transition = '';
-      }
-      if (backdropRef.current && !isDismissingRef.current) {
-        backdropRef.current.style.transition = '';
-      }
-    }, 320);
-  }, [sheetRef, backdropRef]);
-
-  // Handle ESC key to dismiss
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        dismissSheet();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, dismissSheet]);
 
   // Gesture Tracking Ref
   const gestureRef = useRef<{
@@ -152,6 +52,116 @@ export function useSwipeDownDismiss({
     startScrollTop: 0,
     directionDecided: false,
   });
+
+  // Lock background scroll when open
+  useBodyScrollLock(isOpen);
+
+  // Guaranteed cleanup on unmount or when closed
+  useEffect(() => {
+    if (isOpen) {
+      isDismissingRef.current = false;
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, []);
+
+  // Helper to directly translate sheet and dim backdrop (zero React re-render overhead)
+  const applySheetTranslate = useCallback((yOffset: number) => {
+    const clampedY = Math.max(0, yOffset);
+    if (sheetRef.current) {
+      sheetRef.current.style.animation = 'none';
+      sheetRef.current.style.transform = `translate3d(0, ${clampedY}px, 0)`;
+    }
+    if (backdropRef.current) {
+      backdropRef.current.style.animation = 'none';
+      const opacity = Math.max(0, 1 - clampedY / 420);
+      backdropRef.current.style.opacity = `${opacity}`;
+    }
+  }, [sheetRef, backdropRef]);
+
+  // Smooth dismiss animation down to bottom of screen with immediate pointer-events & scroll release
+  const dismissSheet = useCallback(() => {
+    if (isDismissingRef.current) return;
+    isDismissingRef.current = true;
+
+    // Cancel any in-flight gesture tracking
+    if (gestureRef.current) {
+      gestureRef.current.isTracking = false;
+      gestureRef.current.isDraggingSheet = false;
+    }
+
+    // Immediately restore body overflow so dashboard can be used and scrolled immediately
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+
+    if (sheetRef.current) {
+      sheetRef.current.style.pointerEvents = 'none';
+      sheetRef.current.style.animation = 'none';
+      sheetRef.current.style.transition = 'transform 0.24s cubic-bezier(0.32, 0.72, 0, 1)';
+      sheetRef.current.style.transform = 'translate3d(0, 100dvh, 0)';
+    }
+    if (backdropRef.current) {
+      backdropRef.current.style.pointerEvents = 'none';
+      backdropRef.current.style.animation = 'none';
+      backdropRef.current.style.transition = 'opacity 0.22s ease-out';
+      backdropRef.current.style.opacity = '0';
+    }
+
+    setTimeout(() => {
+      if (sheetRef.current) {
+        sheetRef.current.style.display = 'none';
+      }
+      if (backdropRef.current) {
+        backdropRef.current.style.display = 'none';
+      }
+      onClose();
+    }, 240);
+  }, [onClose, sheetRef, backdropRef]);
+
+  // Smooth spring bounce back to top (0px)
+  const snapBackSheet = useCallback(() => {
+    if (isDismissingRef.current) return;
+
+    if (sheetRef.current) {
+      sheetRef.current.style.animation = 'none';
+      sheetRef.current.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1)';
+      sheetRef.current.style.transform = 'translate3d(0, 0px, 0)';
+    }
+    if (backdropRef.current) {
+      backdropRef.current.style.animation = 'none';
+      backdropRef.current.style.transition = 'opacity 0.25s ease-out';
+      backdropRef.current.style.opacity = '1';
+    }
+
+    setTimeout(() => {
+      if (sheetRef.current && !isDismissingRef.current) {
+        sheetRef.current.style.transition = '';
+      }
+      if (backdropRef.current && !isDismissingRef.current) {
+        backdropRef.current.style.transition = '';
+      }
+    }, 300);
+  }, [sheetRef, backdropRef]);
+
+  // Handle ESC key to dismiss
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        dismissSheet();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, dismissSheet]);
 
   // Attach touch event listeners to sheet element with { passive: false } for 1:1 real-time finger tracking
   useEffect(() => {
@@ -195,8 +205,10 @@ export function useSwipeDownDismiss({
 
       // Reset transitions so sheet binds 1:1 immediately to finger touch
       sheetEl.style.transition = 'none';
+      sheetEl.style.animation = 'none';
       if (backdropRef.current) {
         backdropRef.current.style.transition = 'none';
+        backdropRef.current.style.animation = 'none';
       }
     };
 
@@ -327,9 +339,11 @@ export function useSwipeDownDismiss({
 
     if (sheetRef.current) {
       sheetRef.current.style.transition = 'none';
+      sheetRef.current.style.animation = 'none';
     }
     if (backdropRef.current) {
       backdropRef.current.style.transition = 'none';
+      backdropRef.current.style.animation = 'none';
     }
 
     const onPointerMove = (moveEvent: PointerEvent) => {
@@ -368,7 +382,7 @@ export function useSwipeDownDismiss({
   }, [headerSelector, threshold, applySheetTranslate, dismissSheet, snapBackSheet, sheetRef, backdropRef]);
 
   return {
-    isDismissing,
+    isDismissing: false,
     dismissSheet,
     handleHeaderPointerDown,
   };

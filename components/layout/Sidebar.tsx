@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { logoutAction } from '@/lib/actions/auth.actions';
+import { LedgerLogo } from '@/components/brand/LedgerLogo';
 import {
   LayoutDashboard,
   Users,
@@ -87,15 +88,16 @@ export default function Sidebar({ pendingCount = 0, user }: Props) {
                 width: 34,
                 height: 34,
                 borderRadius: '9px',
-                background: 'linear-gradient(135deg, #065DE8, #3897f0)',
+                background: '#141824',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                boxShadow: '0 2px 12px rgba(56,151,240,0.35)',
+                boxShadow: '0 2px 12px rgba(12, 117, 251, 0.25)',
               }}
             >
-              <TrendingUp size={17} color="white" />
+              <LedgerLogo size={22} mode="dark" />
             </motion.div>
             <AnimatePresence>
               {!collapsed && (

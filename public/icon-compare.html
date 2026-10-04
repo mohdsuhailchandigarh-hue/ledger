@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clean Minimalist Ledger App Icons</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0b0d13;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1 { font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    p.subtitle { font-size: 14px; color: #94a3b8; margin-bottom: 36px; }
+    
+    .grid {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+      max-width: 900px;
+      width: 100%;
+    }
+    .card {
+      background: #151924;
+      border: 1px solid #242c40;
+      border-radius: 20px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .preview-box {
+      width: 260px;
+      height: 260px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #07090e;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #1c2333;
+    }
+    .preview-box img, .preview-box svg {
+      width: 240px;
+      height: 240px;
+      display: block;
+    }
+    .desc {
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+      max-width: 220px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <h1>Clean Minimalist Ledger App Icons</h1>
+  <p class="subtitle">Top arch, notch, and seam line removed — pure sleek minimalist aesthetic</p>
+
+  <div class="grid">
+    <!-- Light Mode -->
+    <div class="card">
+      <div class="card-title">Light Mode</div>
+      <div class="preview-box">
+        <img src="/icon-light.svg" alt="Light Mode Icon">
+      </div>
+      <div class="desc">Pure white squircle, electric blue spine, dark navy cover with crisp white ledger grid.</div>
+    </div>
+
+    <!-- Dark Mode -->
+    <div class="card">
+      <div class="card-title">Dark Mode</div>
+      <div class="preview-box">
+        <img src="/icon.svg" alt="Dark Mode Icon">
+      </div>
+      <div class="desc">Dark charcoal squircle, electric blue spine, clean white cover with dark charcoal ledger grid.</div>
+    </div>
+  </div>
+</body>
+</html>

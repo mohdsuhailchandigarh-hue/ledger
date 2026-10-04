@@ -1,21 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <!-- Dark Mode Background Squircle -->
-    <linearGradient id="darkBg" x1="0" y1="0" x2="0" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#141824"/>
-      <stop offset="100%" stop-color="#0D1018"/>
-    </linearGradient>
-
     <!-- Spine Blue Gradient -->
-    <linearGradient id="spineBlue" x1="96" y1="108" x2="160" y2="404" gradientUnits="userSpaceOnUse">
+    <linearGradient id="spineBlueLight" x1="96" y1="108" x2="160" y2="404" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#0C75FB"/>
       <stop offset="100%" stop-color="#0263DC"/>
     </linearGradient>
   </defs>
 
-  <!-- Squircle Canvas (iOS / Android Adaptive) -->
-  <rect width="512" height="512" rx="124" fill="url(#darkBg)"/>
-  <rect width="508" height="508" x="2" y="2" rx="122" stroke="rgba(255, 255, 255, 0.08)" stroke-width="2"/>
+  <!-- Squircle Canvas (Light Mode) -->
+  <rect width="512" height="512" rx="124" fill="#FFFFFF"/>
+  <rect width="508" height="508" x="2" y="2" rx="122" stroke="rgba(0, 0, 0, 0.06)" stroke-width="2"/>
 
   <!-- Left Spine (Vibrant Blue, Rounded Left Corners, Flush Top & Bottom) -->
   <path d="
@@ -25,9 +19,9 @@
     C 106 404 96 390 96 368
     L 96 144
     C 96 122 106 108 128 108
-    Z" fill="url(#spineBlue)"/>
+    Z" fill="url(#spineBlueLight)"/>
 
-  <!-- Main Clean White Book Cover (Rounded Right Corners, Flush with Spine) -->
+  <!-- Main Clean Midnight Navy Book Cover (Rounded Right Corners, Flush with Spine) -->
   <path d="
     M 160 108
     L 384 108
@@ -35,10 +29,10 @@
     L 416 368
     C 416 390 406 404 384 404
     L 160 404
-    Z" fill="#FFFFFF"/>
+    Z" fill="#131824"/>
 
-  <!-- Ledger Grid Lines (Dark Charcoal on White Cover) -->
-  <g stroke="#131722" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Ledger Grid Lines (Crisp White on Dark Navy Cover) -->
+  <g stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
     <!-- Vertical Column 1 (Left table border) -->
     <line x1="208" y1="172" x2="208" y2="368"/>
     <!-- Vertical Column 2 (Divider column, square cell with Col 1) -->

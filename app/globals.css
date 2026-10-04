@@ -1156,4 +1156,35 @@ body.ledger-view-open .add-connection-fab {
   background: rgba(255, 255, 255, 0.4);
 }
 
+/* ─── Premium Native Bottom Sheet Animations ─── */
+@keyframes sheetSlideUpModal {
+  0% {
+    transform: translate3d(0, 100%, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes sheetBackdropFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes slideDownBanner {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, -20px, 0) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0) scale(1);
+  }
+}
+
+
 

@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
+import { OfflineIndicator } from '@/components/pwa/OfflineIndicator';
 
 export const metadata: Metadata = {
   title: {
@@ -68,7 +70,11 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <ServiceWorkerRegister />
+        <OfflineIndicator />
+        {children}
+      </body>
     </html>
   );
 }

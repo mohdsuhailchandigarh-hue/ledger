@@ -23,6 +23,7 @@ import {
   ExternalLink,
   ArrowLeft,
 } from 'lucide-react';
+import { LedgerLogo } from '@/components/brand/LedgerLogo';
 
 const initialState: AuthState = {};
 
@@ -323,13 +324,17 @@ export default function LoginPage({
 
           <div
             style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
               fontSize: '0.8125rem',
               fontWeight: 600,
               color: '#9ca3af',
               letterSpacing: '0.02em',
             }}
           >
-            Shared Ledger
+            <LedgerLogo size={16} mode="dark" />
+            <span>Shared Ledger</span>
           </div>
 
           <div style={{ width: 22 }} />

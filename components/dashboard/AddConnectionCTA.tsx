@@ -271,7 +271,7 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
           router.refresh();
         });
         setTimeout(() => {
-          handleClose();
+          dismissSheet();
         }, 1500);
       }
     } catch (err: any) {
@@ -307,7 +307,7 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
         router.refresh();
       });
       setTimeout(() => {
-        handleClose();
+        dismissSheet();
       }, 1300);
     } catch (err: any) {
       setPersonalError(err.message || 'Failed to create contact account.');
@@ -363,50 +363,55 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
       </motion.button>
 
       {/* ─── Modal / Bottom Sheet ─── */}
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            {/* Backdrop */}
-            {/* Backdrop */}
-            <motion.div
-              ref={backdropRef}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={isDismissing ? undefined : { opacity: 0 }}
-              transition={{ duration: 0.22 }}
-              onClick={dismissSheet}
-              onPointerDown={handleDismissKeyboardIfOutside}
-              onTouchMove={(e) => e.preventDefault()}
-              style={{
-                position: 'fixed',
-                inset: 0,
-                background: 'rgba(0, 0, 0, 0.65)',
-                backdropFilter: 'blur(28px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(28px) saturate(180%)',
-                zIndex: 60,
-              }}
-            />
+      {isOpen && (
+        <div
+          key="add-connection-portal"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 60,
+            pointerEvents: isDismissing ? 'none' : 'auto',
+          }}
+        >
+          {/* Backdrop */}
+          <div
+            ref={backdropRef}
+            onClick={dismissSheet}
+            onPointerDown={handleDismissKeyboardIfOutside}
+            onTouchMove={(e) => e.preventDefault()}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(28px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+              zIndex: 60,
+              animation: 'sheetBackdropFadeIn 0.22s ease-out forwards',
+            }}
+          />
 
-            {/* Sheet / Dialog */}
-            <motion.div
-              ref={sheetRef}
-              initial={{ opacity: 0, y: 'calc(100% + 50px)' }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={isDismissing ? undefined : { opacity: 0, y: 'calc(100% + 50px)' }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              onPointerDown={(e) => {
-                handleDismissKeyboardIfOutside(e);
-                handleHeaderPointerDown(e);
-              }}
-              className="add-connection-modal"
-              style={{
-                position: 'fixed',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                maxWidth: 480,
-                margin: '0 auto',
-                zIndex: 61,
+          {/* Sheet / Dialog */}
+          <div
+            ref={sheetRef}
+            onPointerDown={(e) => {
+              handleDismissKeyboardIfOutside(e);
+              handleHeaderPointerDown(e);
+            }}
+            onAnimationEnd={(e) => {
+              if (e.target === sheetRef.current) {
+                e.currentTarget.style.animation = 'none';
+              }
+            }}
+            className="add-connection-modal"
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              maxWidth: 480,
+              margin: '0 auto',
+              zIndex: 61,
+              animation: 'sheetSlideUpModal 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards',
                 pointerEvents: isDismissing ? 'none' : 'auto',
                 background: 'var(--bg-base)',
                 borderTop: '1px solid rgba(255, 255, 255, 0.14)',
@@ -1160,10 +1165,9 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                   </form>
                 )}
               </div>
-            </motion.div>
-          </>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       <style>{`
         /* Consistent bottom sheet styling on mobile and desktop */
