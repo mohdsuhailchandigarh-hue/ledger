@@ -6,6 +6,7 @@ import DashboardTopBar from '@/components/dashboard/DashboardTopBar';
 import DashboardData from '@/components/dashboard/DashboardData';
 import DashboardSkeletonContent from '@/components/dashboard/DashboardSkeletonContent';
 import PullToRefresh from '@/components/dashboard/PullToRefresh';
+import AddConnectionCTA from '@/components/dashboard/AddConnectionCTA';
 
 export const metadata: Metadata = { title: 'Dashboard | Shared Ledger' };
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,9 @@ export default async function DashboardPage() {
           </Suspense>
         </div>
       </PullToRefresh>
+
+      {/* Permanently fixed Add Connection Floating Action Button */}
+      <AddConnectionCTA currentUserId={user.id} avatarUrl={user.avatar_url} />
     </>
   );
 }

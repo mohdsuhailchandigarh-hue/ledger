@@ -247,6 +247,21 @@ export default function ConnectionsClient({
     }
   }, []);
 
+  // Listen for programmatic ledger open requests
+  useEffect(() => {
+    const handleOpenLedgerEvent = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.connectionId) {
+        openLedger(detail.connectionId, detail.peer, detail.balance ?? 0);
+      }
+    };
+
+    window.addEventListener('ledger:open', handleOpenLedgerEvent);
+    return () => {
+      window.removeEventListener('ledger:open', handleOpenLedgerEvent);
+    };
+  }, [openLedger]);
+
   const closeLedger = useCallback(() => {
     setActiveLedger(null);
     document.body.style.overflow = '';

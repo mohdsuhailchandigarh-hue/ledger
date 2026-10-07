@@ -345,11 +345,14 @@ export default function PullToRefresh({
       {/* ── Content with Elastic Pull Displacement ── */}
       <div
         style={{
-          transform: `translate3d(0, ${isRefreshing ? 38 : pullDistance * 0.38}px, 0)`,
+          transform:
+            isPulling || isRefreshing || pullDistance > 0
+              ? `translate3d(0, ${isRefreshing ? 38 : pullDistance * 0.38}px, 0)`
+              : undefined,
           transition: isPulling
             ? 'none'
             : 'transform 0.34s cubic-bezier(0.18, 0.89, 0.32, 1.15)',
-          willChange: 'transform',
+          willChange: isPulling || isRefreshing || pullDistance > 0 ? 'transform' : undefined,
           width: '100%',
         }}
       >

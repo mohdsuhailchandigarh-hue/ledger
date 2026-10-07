@@ -3,7 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase/server';
 import DashboardHero from '@/components/dashboard/DashboardHero';
 import ConnectionGrid from '@/components/dashboard/ConnectionGrid';
 import MonthlyPnLCard from '@/components/dashboard/MonthlyPnLCard';
-import AddConnectionCTA from '@/components/dashboard/AddConnectionCTA';
 
 interface DashboardDataProps {
   user: {
@@ -246,9 +245,6 @@ export default async function DashboardData({ user }: DashboardDataProps) {
           latestTransactions={latestTxnMap}
         />
       </div>
-
-      {/* Floating Add Connection CTA */}
-      <AddConnectionCTA currentUserId={user.id} avatarUrl={user.avatar_url} netPosition={netPosition} />
     </>
   );
 }

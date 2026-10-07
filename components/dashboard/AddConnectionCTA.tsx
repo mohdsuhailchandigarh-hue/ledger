@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus,
@@ -77,8 +78,13 @@ function getInitials(name: string) {
 }
 
 export default function AddConnectionCTA({ currentUserId, avatarUrl }: Props) {
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<'input' | 'found' | 'not_found'>('input');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const sheetRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -328,6 +334,28 @@ export default function AddConnectionCTA({ currentUserId, avatarUrl }: Props) {
         }
         router.refresh();
         dismissSheet();
+
+        if (res.connectionId && foundUser) {
+          setTimeout(() => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('ledger:open', {
+                  detail: {
+                    connectionId: res.connectionId,
+                    peer: {
+                      id: foundUser.id,
+                      name: foundUser.name,
+                      username: foundUser.username,
+                      avatar_url: foundUser.avatar_url,
+                      isPersonal: false,
+                    },
+                    balance: 0,
+                  },
+                })
+              );
+            }
+          }, 120);
+        }
       }
     } catch (err: any) {
       alert(err.message || 'Failed to accept connection request');
@@ -374,6 +402,14 @@ export default function AddConnectionCTA({ currentUserId, avatarUrl }: Props) {
 
       markConnectionCreated(newConn);
 
+      const peerData = {
+        id: 'offline',
+        name: personalName.trim(),
+        username: `+91${phone}`,
+        avatar_url: null,
+        isPersonal: true,
+      };
+
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('ledger:connection-created', { detail: newConn })
@@ -381,10 +417,22 @@ export default function AddConnectionCTA({ currentUserId, avatarUrl }: Props) {
       }
 
       router.refresh();
-      setPersonalSuccess(`Account for "${personalName.trim()}" created successfully!`);
-      setTimeout(() => {
-        dismissSheet();
-      }, 450);
+      dismissSheet();
+
+      // Immediately open the newly created account ledger modal
+      if (typeof window !== 'undefined' && res.connectionId) {
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent('ledger:open', {
+              detail: {
+                connectionId: res.connectionId,
+                peer: peerData,
+                balance: 0,
+              },
+            })
+          );
+        }, 120);
+      }
     } catch (err: any) {
       setPersonalError(err.message || 'Failed to create contact account.');
     } finally {
@@ -392,63 +440,61 @@ export default function AddConnectionCTA({ currentUserId, avatarUrl }: Props) {
     }
   };
 
-  return (
-    <>
-      {/* ─── Floating Action Button (FAB) — Instagram Blue Add Person Button ─── */}
-      <motion.button
-        whileHover={{
-          scale: 1.05,
-          boxShadow: '0 6px 20px rgba(0, 0, 0, 0.45)',
-        }}
-        whileTap={{ scale: 0.94 }}
-        transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-        onClick={handleOpen}
-        className="add-connection-fab"
-        aria-label="Add New Person / Connection"
-        title="Add Connection"
+  const fabButton = (
+    <motion.button
+      whileHover={{
+        scale: 1.05,
+        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.45)',
+      }}
+      whileTap={{ scale: 0.94 }}
+      transition={{ type: 'spring', stiffness: 450, damping: 22 }}
+      onClick={handleOpen}
+      className="add-connection-fab"
+      aria-label="Add New Person / Connection"
+      title="Add Connection"
+      style={{
+        position: 'fixed',
+        bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))',
+        right: 'max(1.25rem, calc(env(safe-area-inset-right, 0px) + 1.25rem))',
+        zIndex: 45,
+        width: 56,
+        height: 56,
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        outline: 'none',
+        cursor: 'pointer',
+        background: 'linear-gradient(135deg, #065DE8 0%, #1e75ff 52%, #3897f0 100%)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
+        overflow: 'hidden',
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
+      <UserPlus
+        size={25}
+        strokeWidth={2.3}
+        color="#ffffff"
         style={{
-          position: 'fixed',
-          bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))',
-          right: 'max(1.25rem, calc(env(safe-area-inset-right, 0px) + 1.25rem))',
-          zIndex: 45,
-          width: 56,
-          height: 56,
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 0,
-          outline: 'none',
-          cursor: 'pointer',
-          background: 'linear-gradient(135deg, #065DE8 0%, #1e75ff 52%, #3897f0 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
-          overflow: 'hidden',
-          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          display: 'block',
+          transform: 'translateX(0.5px)',
         }}
-      >
-        <UserPlus
-          size={25}
-          strokeWidth={2.3}
-          color="#ffffff"
-          style={{
-            display: 'block',
-            transform: 'translateX(0.5px)',
-          }}
-        />
-      </motion.button>
+      />
+    </motion.button>
+  );
 
-      {/* ─── Modal / Bottom Sheet ─── */}
-      {isOpen && (
-        <div
-          key="add-connection-portal"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 60,
-            pointerEvents: isDismissing ? 'none' : 'auto',
-          }}
-        >
+  const modalContent = isOpen ? (
+    <div
+      key="add-connection-portal"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        pointerEvents: isDismissing ? 'none' : 'auto',
+      }}
+    >
           {/* Backdrop */}
           <div
             ref={backdropRef}
@@ -939,7 +985,25 @@ export default function AddConnectionCTA({ currentUserId, avatarUrl }: Props) {
                               type="button"
                               onClick={() => {
                                 dismissSheet();
-                                router.push(`/ledger/${existingConnectionId}`);
+                                setTimeout(() => {
+                                  if (typeof window !== 'undefined' && existingConnectionId && foundUser) {
+                                    window.dispatchEvent(
+                                      new CustomEvent('ledger:open', {
+                                        detail: {
+                                          connectionId: existingConnectionId,
+                                          peer: {
+                                            id: foundUser.id,
+                                            name: foundUser.name,
+                                            username: foundUser.username,
+                                            avatar_url: foundUser.avatar_url,
+                                            isPersonal: false,
+                                          },
+                                          balance: 0,
+                                        },
+                                      })
+                                    );
+                                  }
+                                }, 120);
                               }}
                               style={{
                                 width: '100%',
@@ -1292,7 +1356,24 @@ export default function AddConnectionCTA({ currentUserId, avatarUrl }: Props) {
                         type="button"
                         onClick={() => {
                           dismissSheet();
-                          router.push(`/ledger/${duplicateConnectionId}`);
+                          setTimeout(() => {
+                            if (typeof window !== 'undefined') {
+                              window.dispatchEvent(
+                                new CustomEvent('ledger:open', {
+                                  detail: {
+                                    connectionId: duplicateConnectionId,
+                                    peer: {
+                                      id: 'offline',
+                                      name: personalName.trim() || 'Contact',
+                                      username: `+91${phone}`,
+                                      isPersonal: true,
+                                    },
+                                    balance: 0,
+                                  },
+                                })
+                              );
+                            }
+                          }, 120);
                         }}
                         style={{
                           width: '100%',
@@ -1377,7 +1458,24 @@ export default function AddConnectionCTA({ currentUserId, avatarUrl }: Props) {
               </div>
             </div>
           </div>
-        )}
+        ) : null;
+
+  return (
+    <>
+      {mounted && typeof document !== 'undefined'
+        ? createPortal(
+            <>
+              {fabButton}
+              {modalContent}
+            </>,
+            document.body
+          )
+        : (
+            <>
+              {fabButton}
+              {modalContent}
+            </>
+          )}
 
       <style>{`
         /* Consistent bottom sheet styling on mobile and desktop */
