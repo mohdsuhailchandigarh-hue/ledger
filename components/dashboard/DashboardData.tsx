@@ -239,53 +239,6 @@ export default async function DashboardData({ user }: DashboardDataProps) {
 
       {/* Main accounts content */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', zIndex: 10 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '0.25rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <h2
-              style={{
-                fontSize: '0.9375rem',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              Accounts &amp; Connections
-            </h2>
-            <span
-              style={{
-                fontSize: '0.6875rem',
-                fontWeight: 700,
-                padding: '1px 6px',
-                borderRadius: '9999px',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-muted)',
-              }}
-            >
-              {connections.length}
-            </span>
-          </div>
-          <a
-            href="/connections"
-            className="desktop-only"
-            style={{
-              fontSize: '0.8125rem',
-              color: 'var(--accent-primary)',
-              textDecoration: 'none',
-              fontWeight: 500,
-            }}
-          >
-            Manage all →
-          </a>
-        </div>
-
         <ConnectionGrid
           connections={connections}
           currentUserId={user.id}

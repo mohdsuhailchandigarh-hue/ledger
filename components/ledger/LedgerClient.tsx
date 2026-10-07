@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { deleteLedgerAction, updateContactNameAction, sendConnectionRequestAction, respondToConnectionRequestAction, cancelConnectionRequestAction } from '@/lib/actions/connection.actions';
 import { loadMoreTransactionsAction } from '@/lib/actions/transaction.actions';
+import { markConnectionDeleted } from '@/lib/utils/connectionSync';
 
 type Transaction = {
   id: string;
@@ -258,14 +259,20 @@ export default function LedgerClient({
       if (result.error) {
         setDeleteError(result.error);
       } else {
+        markConnectionDeleted(connectionId);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('ledger:connection-deleted', { detail: { connectionId } })
+          );
+        }
         if (onDeleteSuccess) {
           onDeleteSuccess(connectionId);
         }
+        router.refresh();
         if (onBack) {
           onBack();
         } else {
-          router.push('/dashboard');
-          router.refresh();
+          router.replace('/dashboard');
         }
       }
     });

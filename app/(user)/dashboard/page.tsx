@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import DashboardTopBar from '@/components/dashboard/DashboardTopBar';
 import DashboardData from '@/components/dashboard/DashboardData';
 import DashboardSkeletonContent from '@/components/dashboard/DashboardSkeletonContent';
+import PullToRefresh from '@/components/dashboard/PullToRefresh';
 
 export const metadata: Metadata = { title: 'Dashboard | Shared Ledger' };
 export const dynamic = 'force-dynamic';
@@ -26,20 +27,22 @@ export default async function DashboardPage() {
         monthlyNet={0}
       />
 
-      <div
-        style={{
-          padding: '0 clamp(0.875rem, 2.5vw, 2rem) 4rem',
-          maxWidth: '1400px',
-          width: '100%',
-          boxSizing: 'border-box',
-          margin: '0 auto',
-        }}
-      >
-        {/* Instant Skeleton Loading with React Suspense Stream */}
-        <Suspense fallback={<DashboardSkeletonContent />}>
-          <DashboardData user={user} />
-        </Suspense>
-      </div>
+      <PullToRefresh>
+        <div
+          style={{
+            padding: '0 clamp(0.875rem, 2.5vw, 2rem) 4rem',
+            maxWidth: '1400px',
+            width: '100%',
+            boxSizing: 'border-box',
+            margin: '0 auto',
+          }}
+        >
+          {/* Instant Skeleton Loading with React Suspense Stream */}
+          <Suspense fallback={<DashboardSkeletonContent />}>
+            <DashboardData user={user} />
+          </Suspense>
+        </div>
+      </PullToRefresh>
     </>
   );
 }

@@ -16,6 +16,7 @@ import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import { Search, UserPlus, Check, X, Clock, Users, Link2, Phone, AlertCircle, Edit2, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { markConnectionDeleted, markConnectionCreated, reconcileConnections } from '@/lib/utils/connectionSync';
 
 function formatDate(isoStr: string): string {
   // Show as calendar date, not relative time
@@ -95,18 +96,25 @@ export default function ConnectionsClient({
 
   const [activeLedger, setActiveLedger] = useState<ActiveLedgerData | null>(null);
 
-  const [items, setItems] = useState<Connection[]>(connections);
+  const [pendingList, setPendingList] = useState<ConnectionReq[]>(pendingRequests);
+  const [items, setItems] = useState<Connection[]>(() => reconcileConnections(connections));
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    setItems(reconcileConnections(connections));
   }, []);
 
   useEffect(() => {
-    setItems(connections);
+    setPendingList(pendingRequests);
+  }, [pendingRequests]);
+
+  useEffect(() => {
+    setItems(reconcileConnections(connections));
   }, [connections]);
 
   const handleDeleteSuccess = useCallback((deletedId: string) => {
+    markConnectionDeleted(deletedId);
     setItems((prev) => prev.filter((c) => c.id !== deletedId));
   }, []);
 
@@ -121,6 +129,43 @@ export default function ConnectionsClient({
       };
     });
   }, []);
+
+  // Real-time synchronization: instantly update connections list when a connection is created or deleted
+  useEffect(() => {
+    const handleCreated = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.id) {
+        markConnectionCreated(detail);
+        setItems((prev) => {
+          if (prev.some((c) => c.id === detail.id)) return prev;
+          return [detail, ...prev];
+        });
+        router.refresh();
+      }
+    };
+
+    const handleDeleted = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.connectionId) {
+        markConnectionDeleted(detail.connectionId);
+        setItems((prev) => prev.filter((c) => c.id !== detail.connectionId));
+        router.refresh();
+      }
+    };
+
+    const handleFocus = () => {
+      router.refresh();
+    };
+
+    window.addEventListener('ledger:connection-created', handleCreated);
+    window.addEventListener('ledger:connection-deleted', handleDeleted);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('ledger:connection-created', handleCreated);
+      window.removeEventListener('ledger:connection-deleted', handleDeleted);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [router]);
 
   useEffect(() => {
     const handlePageShow = (e: PageTransitionEvent) => {
@@ -377,7 +422,25 @@ export default function ConnectionsClient({
       setContactName('');
       setContactPhone('');
       if (res.connectionId) {
-        router.push(`/ledger/${res.connectionId}`);
+        const newConn: Connection = {
+          id: res.connectionId,
+          created_at: new Date().toISOString(),
+          contact_name: contactName.trim(),
+          contact_phone: contactPhone.trim(),
+          user_a: { id: currentUserId, name: '', username: '', avatar_url: null },
+          user_b: null,
+        };
+        markConnectionCreated(newConn);
+        setItems((prev) => [newConn, ...prev.filter((c) => c.id !== res.connectionId)]);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('ledger:connection-created', { detail: newConn })
+          );
+        }
+        router.refresh();
+        setContactFormState({ kind: 'idle' });
+        const peer = { id: 'offline', name: newConn.contact_name || 'Contact', username: newConn.contact_phone || '', isPersonal: true };
+        openLedger(res.connectionId, peer, 0);
       } else {
         setContactFormState({ kind: 'success', message: `Contact "${contactName}" added successfully!` });
         startTransition(() => router.refresh());
@@ -433,9 +496,28 @@ export default function ConnectionsClient({
   }
 
   async function handleRespond(reqId: string, action: 'accepted' | 'rejected') {
+    const targetReq = pendingList.find((r) => r.id === reqId);
+    setPendingList((prev) => prev.filter((r) => r.id !== reqId));
+
     const res = await respondToConnectionRequestAction(reqId, action);
-    if (action === 'accepted' && res.connectionId) {
-      router.push(`/ledger/${res.connectionId}`);
+    if (action === 'accepted' && res.connectionId && targetReq) {
+      const newConn: Connection = {
+        id: res.connectionId,
+        created_at: new Date().toISOString(),
+        contact_name: null,
+        contact_phone: null,
+        user_a: { id: currentUserId, name: '', username: '', avatar_url: null },
+        user_b: targetReq.from_user,
+      };
+      markConnectionCreated(newConn);
+      setItems((prev) => [newConn, ...prev.filter((c) => c.id !== res.connectionId)]);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('ledger:connection-created', { detail: newConn })
+        );
+      }
+      router.refresh();
+      openLedger(res.connectionId, targetReq.from_user, 0);
       return;
     }
     startTransition(() => router.refresh());
@@ -557,7 +639,7 @@ export default function ConnectionsClient({
             transition={{ duration: 0.18 }}
           >
             {/* Pending Requests */}
-            {pendingRequests.length > 0 && (
+            {pendingList.length > 0 && (
               <div style={{ marginBottom: '1.5rem' }}>
                 <h2
                   style={{
@@ -583,11 +665,11 @@ export default function ConnectionsClient({
                       padding: '2px 7px',
                     }}
                   >
-                    {pendingRequests.length}
+                    {pendingList.length}
                   </span>
                 </h2>
                 <div className="card" style={{ overflow: 'hidden' }}>
-                  {pendingRequests.map((req, i) => (
+                  {pendingList.map((req, i) => (
                     <motion.div
                       key={req.id}
                       initial={{ opacity: 0, x: -10 }}
@@ -598,7 +680,7 @@ export default function ConnectionsClient({
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '1rem 1.25rem',
-                        borderBottom: i < pendingRequests.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                        borderBottom: i < pendingList.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                         gap: '1rem',
                         flexWrap: 'wrap',
                       }}
@@ -871,9 +953,14 @@ export default function ConnectionsClient({
           >
             {/* Add Personal Contact Form */}
             <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
-              <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Add Personal Contact
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Personal Use Contact
+                </p>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#3897f0', background: 'rgba(56, 151, 240, 0.1)', border: '1px solid rgba(56, 151, 240, 0.2)', padding: '2px 8px', borderRadius: '9999px' }}>
+                  Private Ledger
+                </span>
+              </div>
 
               <AnimatePresence mode="wait">
                 {/* ── State: error ── */}
@@ -1086,7 +1173,7 @@ export default function ConnectionsClient({
                           />
                         </div>
                         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.375rem' }}>
-                          If this number belongs to a platform user, you&apos;ll be offered to connect with them instead.
+                          Personal use contacts are stored privately in your ledger for offline transactions and balance tracking.
                         </p>
                       </div>
                     </div>

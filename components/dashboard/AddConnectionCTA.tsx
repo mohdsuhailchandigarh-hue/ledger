@@ -4,6 +4,8 @@ import { useState, useTransition, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus,
+  UserCheck,
+  Phone,
   X,
   Check,
   AlertCircle,
@@ -20,6 +22,7 @@ import {
 } from '@/lib/actions/connection.actions';
 import { useRouter } from 'next/navigation';
 import { useSwipeDownDismiss } from '@/lib/hooks/useSwipeDownDismiss';
+import { markConnectionCreated } from '@/lib/utils/connectionSync';
 
 type Props = {
   currentUserId: string;
@@ -73,7 +76,7 @@ function getInitials(name: string) {
     .slice(0, 2);
 }
 
-export default function AddConnectionCTA({ currentUserId }: Props) {
+export default function AddConnectionCTA({ currentUserId, avatarUrl }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<'input' | 'found' | 'not_found'>('input');
 
@@ -305,12 +308,26 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
       if (res.error) {
         alert(res.error);
       } else {
-        dismissSheet();
-        if (res.connectionId) {
-          router.push(`/ledger/${res.connectionId}`);
-        } else {
-          router.refresh();
+        if (res.connectionId && foundUser) {
+          const newConn = {
+            id: res.connectionId,
+            created_at: new Date().toISOString(),
+            contact_name: null,
+            contact_phone: null,
+            user_a_id: currentUserId,
+            user_b_id: foundUser.id,
+            user_a: { id: currentUserId, name: '', username: '', avatar_url: avatarUrl },
+            user_b: { id: foundUser.id, name: foundUser.name, username: foundUser.username, avatar_url: foundUser.avatar_url },
+          };
+          markConnectionCreated(newConn);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('ledger:connection-created', { detail: newConn })
+            );
+          }
         }
+        router.refresh();
+        dismissSheet();
       }
     } catch (err: any) {
       alert(err.message || 'Failed to accept connection request');
@@ -344,15 +361,30 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
         return;
       }
 
-      setPersonalSuccess(`Account for "${personalName.trim()}" created successfully! Redirecting...`);
+      const newConn = {
+        id: res.connectionId!,
+        created_at: new Date().toISOString(),
+        contact_name: personalName.trim(),
+        contact_phone: `+91${phone}`,
+        user_a_id: currentUserId,
+        user_b_id: null,
+        user_a: { id: currentUserId, name: '', username: '', avatar_url: avatarUrl },
+        user_b: null,
+      };
+
+      markConnectionCreated(newConn);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('ledger:connection-created', { detail: newConn })
+        );
+      }
+
+      router.refresh();
+      setPersonalSuccess(`Account for "${personalName.trim()}" created successfully!`);
       setTimeout(() => {
         dismissSheet();
-        if (res.connectionId) {
-          router.push(`/ledger/${res.connectionId}`);
-        } else {
-          router.refresh();
-        }
-      }, 400);
+      }, 450);
     } catch (err: any) {
       setPersonalError(err.message || 'Failed to create contact account.');
     } finally {
@@ -1084,18 +1116,37 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                    ══════════════════════════════════════════════════════ */}
                 {step === 'not_found' && (
                   <form onSubmit={(e) => { e.preventDefault(); if (!nameJustBlurredRef.current) handleAddPersonalContact(); }}>
-                    {/* Step Header: Enter user name */}
-                    <div style={{ marginBottom: '1.25rem' }}>
+                    {/* Step Header: Personal Use Contact */}
+                    <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          background: 'rgba(56, 151, 240, 0.12)',
+                          color: '#3897f0',
+                          border: '1px solid rgba(56, 151, 240, 0.28)',
+                          padding: '3px 11px',
+                          borderRadius: '9999px',
+                          fontSize: '0.6875rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          marginBottom: '0.625rem',
+                        }}
+                      >
+                        <UserCheck size={12} /> Personal Use Contact
+                      </span>
                       <h4
                         style={{
-                          fontSize: '1.1875rem',
+                          fontSize: '1.25rem',
                           fontWeight: 700,
                           color: 'var(--text-primary)',
                           margin: '0 0 0.35rem 0',
                           letterSpacing: '-0.02em',
                         }}
                       >
-                        Enter user name
+                        Add Personal Contact
                       </h4>
                       <p
                         style={{
@@ -1105,8 +1156,54 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                           lineHeight: 1.45,
                         }}
                       >
-                        Enter a name for +91 {phone} to add them to your ledger.
+                        Create an offline contact for personal use to record transactions and balances privately.
                       </p>
+                    </div>
+
+                    {/* Mobile number card preview */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.625rem 0.875rem',
+                        background: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '12px',
+                        marginBottom: '0.875rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: '8px',
+                            background: 'rgba(56, 151, 240, 0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#3897f0',
+                          }}
+                        >
+                          <Phone size={13} />
+                        </div>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '0.02em' }}>
+                          +91 {phone}
+                        </span>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '0.6875rem',
+                          fontWeight: 600,
+                          color: '#94a3b8',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          borderRadius: '6px',
+                          padding: '2px 8px',
+                        }}
+                      >
+                        Private Ledger
+                      </span>
                     </div>
 
                     {/* Contact Name Input (Instagram style) */}
@@ -1136,13 +1233,13 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                           marginBottom: '2px',
                         }}
                       >
-                        User name
+                        Contact name
                       </span>
 
                       <input
                         ref={nameInputRef}
                         type="text"
-                        placeholder="e.g. Rahul Sharma"
+                        placeholder="e.g. Rahul Sharma, Vendor, Friend"
                         value={personalName}
                         autoComplete="off"
                         onChange={(e) => {
@@ -1169,24 +1266,6 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                           caretColor: '#3897f0',
                         }}
                       />
-                    </div>
-
-                    {/* Mobile number badge preview */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '0.5rem 0.875rem',
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        borderRadius: '10px',
-                        fontSize: '0.75rem',
-                        color: 'var(--text-muted)',
-                        marginBottom: '1rem',
-                      }}
-                    >
-                      <span>Phone number:</span>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>+91 {phone}</span>
                     </div>
 
                     {/* Error message */}
@@ -1284,10 +1363,13 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                       {addingPersonal ? (
                         <>
                           <Loader2 size={16} className="animate-spin" />
-                          <span>Adding Connection...</span>
+                          <span>Creating Personal Contact...</span>
                         </>
                       ) : (
-                        <span>Add Connection</span>
+                        <>
+                          <UserPlus size={16} />
+                          <span>Create Personal Contact</span>
+                        </>
                       )}
                     </button>
                   </form>

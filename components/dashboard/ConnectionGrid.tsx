@@ -11,6 +11,7 @@ import { getLedgerDetailsAction } from '@/lib/actions/transaction.actions';
 import { resolveConnectionPeerName } from '@/lib/utils/connection';
 import { sendConnectionRequestAction, respondToConnectionRequestAction } from '@/lib/actions/connection.actions';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
+import { markConnectionDeleted, markConnectionCreated, reconcileConnections } from '@/lib/utils/connectionSync';
 
 type Connection = {
   id: string;
@@ -107,13 +108,15 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
 
   useEffect(() => {
     setMounted(true);
+    setItems(reconcileConnections(connections));
   }, []);
 
   useEffect(() => {
-    setItems(connections);
+    setItems(reconcileConnections(connections));
   }, [connections]);
 
   const handleDeleteSuccess = useCallback((deletedId: string) => {
+    markConnectionDeleted(deletedId);
     setItems((prev) => prev.filter((c) => c.id !== deletedId));
   }, []);
 
@@ -128,6 +131,43 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
       };
     });
   }, []);
+
+  // Real-time synchronization: instantly update accounts list when a connection is created or deleted anywhere in the app
+  useEffect(() => {
+    const handleCreated = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.id) {
+        markConnectionCreated(detail);
+        setItems((prev) => {
+          if (prev.some((c) => c.id === detail.id)) return prev;
+          return [detail, ...prev];
+        });
+        router.refresh();
+      }
+    };
+
+    const handleDeleted = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.connectionId) {
+        markConnectionDeleted(detail.connectionId);
+        setItems((prev) => prev.filter((c) => c.id !== detail.connectionId));
+        router.refresh();
+      }
+    };
+
+    const handleFocus = () => {
+      router.refresh();
+    };
+
+    window.addEventListener('ledger:connection-created', handleCreated);
+    window.addEventListener('ledger:connection-deleted', handleDeleted);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('ledger:connection-created', handleCreated);
+      window.removeEventListener('ledger:connection-deleted', handleDeleted);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [router]);
 
   useEffect(() => {
     const handlePageShow = (e: PageTransitionEvent) => {
@@ -368,52 +408,105 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
     });
   }, [items, query, currentUserId, latestTransactions]);
 
-  if (items.length === 0) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        style={{
-          textAlign: 'center',
-          padding: '2.5rem 1.5rem',
-          background: 'var(--bg-surface)',
-          borderRadius: '16px',
-          border: '1px dashed var(--border-default)',
-        }}
-      >
-        <div
-          style={{
-            width: 50,
-            height: 50,
-            borderRadius: '50%',
-            background: 'var(--bg-elevated)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 0.75rem',
-          }}
-        >
-          <UserCheck size={22} color="var(--text-muted)" />
-        </div>
-        <h3
+  const renderHeader = () => (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '0.625rem',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <h2
           style={{
             fontSize: '0.9375rem',
             fontWeight: 600,
             color: 'var(--text-primary)',
-            marginBottom: '0.25rem',
+            letterSpacing: '-0.01em',
           }}
         >
-          No accounts yet
-        </h3>
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          Tap the floating + button on the bottom right to start your first ledger
-        </p>
-      </motion.div>
+          Accounts &amp; Connections
+        </h2>
+        <span
+          style={{
+            fontSize: '0.6875rem',
+            fontWeight: 700,
+            padding: '1px 6px',
+            borderRadius: '9999px',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border-subtle)',
+            color: 'var(--text-muted)',
+          }}
+        >
+          {items.length}
+        </span>
+      </div>
+      <a
+        href="/connections"
+        className="desktop-only"
+        style={{
+          fontSize: '0.8125rem',
+          color: 'var(--accent-primary)',
+          textDecoration: 'none',
+          fontWeight: 500,
+        }}
+      >
+        Manage all →
+      </a>
+    </div>
+  );
+
+  if (items.length === 0) {
+    return (
+      <div style={{ width: '100%' }}>
+        {renderHeader()}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{
+            textAlign: 'center',
+            padding: '2.5rem 1.5rem',
+            background: 'var(--bg-surface)',
+            borderRadius: '16px',
+            border: '1px dashed var(--border-default)',
+          }}
+        >
+          <div
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: '50%',
+              background: 'var(--bg-elevated)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 0.75rem',
+            }}
+          >
+            <UserCheck size={22} color="var(--text-muted)" />
+          </div>
+          <h3
+            style={{
+              fontSize: '0.9375rem',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              marginBottom: '0.25rem',
+            }}
+          >
+            No accounts yet
+          </h3>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Tap the floating + button on the bottom right to start your first ledger
+          </p>
+        </motion.div>
+      </div>
     );
   }
 
   return (
     <div style={{ width: '100%' }}>
+      {renderHeader()}
       {/* Search Filter for Accounts */}
       {items.length > 0 && (
         <div
