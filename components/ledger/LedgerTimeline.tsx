@@ -1,7 +1,13 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useTransform,
+  animate,
+} from 'framer-motion';
 import {
   CheckCircle2,
   Clock,
@@ -9,8 +15,10 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   MinusCircle,
+  Trash2,
 } from 'lucide-react';
 import ApprovalOverlay from './ApprovalOverlay';
+import { cancelPendingTransactionAction } from '@/lib/actions/transaction.actions';
 
 type Transaction = {
   id: string;
@@ -32,6 +40,7 @@ type Props = {
   hasMore?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
+  onPendingTxnDeleted?: (txnId: string) => void;
 };
 
 const statusConfig = {
@@ -144,6 +153,377 @@ function getTxnDateInfo(txn: Transaction) {
   return { groupLabel, groupKey, timeStr };
 }
 
+interface SwipeablePendingRowProps {
+  txn: Transaction;
+  amount: number;
+  willGet: boolean;
+  timeStr: string;
+  status: (typeof statusConfig)[keyof typeof statusConfig];
+  displayBal: number;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDelete: () => void;
+}
+
+function SwipeablePendingRow({
+  txn,
+  amount,
+  willGet,
+  timeStr,
+  status,
+  displayBal,
+  isOpen,
+  onOpenChange,
+  onDelete,
+}: SwipeablePendingRowProps) {
+  const x = useMotionValue(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Dynamic transforms based on drag distance
+  const iconScale = useTransform(x, [-160, -88, 0], [1.2, 1, 0.8]);
+  const actionOpacity = useTransform(x, [-88, -20, 0], [1, 0.85, 0.3]);
+
+  // Keep in sync with external open state (e.g. if another row opens or closes)
+  useEffect(() => {
+    if (!isOpen && x.get() !== 0) {
+      animate(x, 0, { type: 'spring', stiffness: 450, damping: 32 });
+    }
+  }, [isOpen, x]);
+
+  const triggerDelete = () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(20);
+      } catch {}
+    }
+    // Slide completely offscreen with spring-like velocity, then invoke optimistic delete
+    animate(x, -360, {
+      duration: 0.22,
+      ease: [0.32, 0.72, 0, 1],
+      onComplete: () => {
+        onDelete();
+      },
+    });
+  };
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0, height: 'auto' }}
+      exit={{
+        opacity: 0,
+        height: 0,
+        overflow: 'hidden',
+        transition: {
+          height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
+          opacity: { duration: 0.18, ease: 'easeOut' },
+        },
+      }}
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+        background: '#15151c',
+      }}
+    >
+      {/* iOS Red Destructive Background Action */}
+      <motion.div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'stretch',
+          background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+          zIndex: 1,
+          opacity: actionOpacity,
+        }}
+      >
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            triggerDelete();
+          }}
+          disabled={isDeleting}
+          aria-label="Delete sent request"
+          style={{
+            width: 88,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+            background: 'transparent',
+            border: 'none',
+            color: '#ffffff',
+            cursor: 'pointer',
+            padding: '0 8px',
+            userSelect: 'none',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          {isDeleting ? (
+            <div
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                border: '2px solid rgba(255,255,255,0.35)',
+                borderTopColor: '#ffffff',
+                animation: 'spin 0.6s linear infinite',
+              }}
+            />
+          ) : (
+            <>
+              <motion.div style={{ scale: iconScale }}>
+                <Trash2 size={20} strokeWidth={2.3} color="#ffffff" />
+              </motion.div>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  letterSpacing: '-0.01em',
+                  color: '#ffffff',
+                }}
+              >
+                Delete
+              </span>
+            </>
+          )}
+        </button>
+      </motion.div>
+
+      {/* Foreground Swipeable Item */}
+      <motion.div
+        drag="x"
+        dragDirectionLock
+        dragConstraints={{ left: -88, right: 0 }}
+        dragElastic={{ left: 0.35, right: 0.04 }}
+        style={{
+          x,
+          touchAction: 'pan-y',
+          position: 'relative',
+          zIndex: 2,
+          background: isHovered ? '#1c1b24' : '#15151c',
+          padding: 'clamp(0.75rem, 2.5vw, 1rem) clamp(0.875rem, 3vw, 1.25rem)',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '0.875rem',
+          cursor: 'grab',
+          userSelect: 'none',
+          transition: 'background 0.15s ease',
+        }}
+        whileDrag={{ cursor: 'grabbing' }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={() => {
+          if (isOpen) {
+            animate(x, 0, { type: 'spring', stiffness: 450, damping: 32 });
+            onOpenChange(false);
+          }
+        }}
+        onDragEnd={(_, info) => {
+          const curX = x.get();
+          if (curX < -135 || info.velocity.x < -500) {
+            // Full swipe or high-velocity flick
+            triggerDelete();
+          } else if (curX < -44 || info.velocity.x < -200) {
+            // Snap open
+            animate(x, -88, { type: 'spring', stiffness: 450, damping: 32 });
+            onOpenChange(true);
+          } else {
+            // Snap closed
+            animate(x, 0, { type: 'spring', stiffness: 450, damping: 32 });
+            onOpenChange(false);
+          }
+        }}
+      >
+        {/* Direction Icon */}
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: '12px',
+            background: willGet
+              ? 'rgba(16, 185, 129, 0.1)'
+              : 'rgba(244, 63, 94, 0.1)',
+            border: `1px solid ${
+              willGet
+                ? 'rgba(16, 185, 129, 0.22)'
+                : 'rgba(244, 63, 94, 0.22)'
+            }`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            marginTop: '2px',
+          }}
+        >
+          {willGet ? (
+            <ArrowDownLeft size={17} color="var(--success, #10b981)" />
+          ) : (
+            <ArrowUpRight size={17} color="var(--danger, #f43f5e)" />
+          )}
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0, paddingRight: '0.5rem' }}>
+          <p
+            style={{
+              fontSize: '0.9375rem',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.01em',
+              marginBottom: '4px',
+              wordBreak: 'break-word',
+              lineHeight: 1.35,
+            }}
+          >
+            {txn.note || 'Entry created'}
+          </p>
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: 'rgba(255, 255, 255, 0.45)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              margin: 0,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span>You</span>
+            {timeStr && (
+              <>
+                <span>·</span>
+                <span>{timeStr}</span>
+              </>
+            )}
+            <span>·</span>
+            <span
+              style={{
+                color: '#fbbf24',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+              }}
+            >
+              <Trash2 size={10} />
+              Slide left to delete
+            </span>
+          </p>
+        </div>
+
+        {/* Right side: Amount, Status Tag, Balance Tag, and Desktop Cancel button */}
+        <div
+          style={{
+            textAlign: 'right',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: '3px',
+            flexShrink: 0,
+            minWidth: 'fit-content',
+          }}
+        >
+          {/* Amount */}
+          <p
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              color: willGet ? 'var(--success, #10b981)' : 'var(--danger, #f43f5e)',
+              margin: 0,
+              lineHeight: 1.2,
+            }}
+          >
+            {willGet ? '+' : '-'}₹{amount.toLocaleString('en-IN')}
+          </p>
+
+          {/* Status Tag */}
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              fontSize: '0.625rem',
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              padding: '2px 7px',
+              borderRadius: '9999px',
+              background: status.bg,
+              color: status.color,
+              border: `1px solid ${status.border}`,
+              lineHeight: 1.1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <status.icon size={9} strokeWidth={2.5} />
+            {status.label}
+          </span>
+
+          {/* Balance Tag */}
+          <span
+            title="Pending review: shows calculated balance if this entry is accepted"
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '0.6875rem',
+              fontWeight: 600,
+              color: '#fbbf24',
+              background: 'rgba(245, 158, 11, 0.12)',
+              border: '1px solid rgba(245, 158, 11, 0.38)',
+              boxShadow: '0 0 8px rgba(245, 158, 11, 0.18)',
+              padding: '1.5px 6px',
+              borderRadius: '4px',
+              letterSpacing: '-0.02em',
+              whiteSpace: 'nowrap',
+              marginTop: '1px',
+            }}
+          >
+            Bal {displayBal > 0 ? `+₹${Math.abs(displayBal).toLocaleString('en-IN')}` : displayBal < 0 ? `-₹${Math.abs(displayBal).toLocaleString('en-IN')}` : '₹0'}
+          </span>
+
+          {/* Desktop Hover Cancel Action */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              triggerDelete();
+            }}
+            title="Cancel this pending request"
+            style={{
+              display: isHovered ? 'inline-flex' : 'none',
+              alignItems: 'center',
+              gap: '3px',
+              fontSize: '0.625rem',
+              fontWeight: 600,
+              color: '#fb7185',
+              background: 'rgba(244, 63, 94, 0.12)',
+              border: '1px solid rgba(244, 63, 94, 0.28)',
+              padding: '1px 6px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginTop: '2px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Trash2 size={9} />
+            Cancel
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function LedgerTimeline({
   transactions,
   currentUserId,
@@ -151,9 +531,38 @@ export default function LedgerTimeline({
   hasMore = false,
   isLoadingMore = false,
   onLoadMore,
+  onPendingTxnDeleted,
 }: Props) {
   const [approvalTxn, setApprovalTxn] = useState<Transaction | null>(null);
+  const [swipedOpenTxnId, setSwipedOpenTxnId] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const handleDeletePending = useCallback(
+    async (txnId: string) => {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate(20);
+        } catch {}
+      }
+
+      // Optimistically remove from state so UI updates instantly
+      if (onPendingTxnDeleted) {
+        onPendingTxnDeleted(txnId);
+      }
+
+      // Execute server action
+      try {
+        const res = await cancelPendingTransactionAction(txnId);
+        if (res && res.error) {
+          alert(res.error);
+          if (onLoadMore) onLoadMore();
+        }
+      } catch (err: any) {
+        alert(err?.message || 'Failed to cancel request');
+      }
+    },
+    [onPendingTxnDeleted, onLoadMore]
+  );
 
   // 1. Compute running balance after each transaction (backwards from current netBalance)
   // For pending transactions: calculate the potential balance if this pending entry were accepted, and flag as pending
@@ -307,32 +716,61 @@ export default function LedgerTimeline({
             </div>
 
             {/* Section Items */}
-            {section.items.map((txn) => {
-              const isCreator = txn.creator?.id === currentUserId;
-              const isCounterparty = txn.counterparty?.id === currentUserId;
-              const amount = Number(txn.amount);
+            <AnimatePresence initial={false} mode="popLayout">
+              {section.items.map((txn) => {
+                const isCreator = txn.creator?.id === currentUserId;
+                const isCounterparty = txn.counterparty?.id === currentUserId;
+                const amount = Number(txn.amount);
 
-              let willGet = false;
-              if (isCreator) {
-                willGet = txn.direction === 'get';
-              } else if (isCounterparty) {
-                willGet = txn.direction === 'give';
-              }
+                let willGet = false;
+                if (isCreator) {
+                  willGet = txn.direction === 'get';
+                } else if (isCounterparty) {
+                  willGet = txn.direction === 'give';
+                }
 
-              const status = statusConfig[txn.status];
-              const canApprove = isCounterparty && txn.status === 'pending';
-              const { timeStr } = getTxnDateInfo(txn);
-              const balData = balanceDataMap.get(txn.id) ?? { balance: 0, isPending: false };
-              const displayBal = balData.balance;
-              const isPendingTxn = balData.isPending || txn.status === 'pending';
-              const isDimmed = txn.status === 'rejected' || txn.status === 'canceled';
+                const status = statusConfig[txn.status];
+                const canApprove = isCounterparty && txn.status === 'pending';
+                const { timeStr } = getTxnDateInfo(txn);
+                const balData = balanceDataMap.get(txn.id) ?? { balance: 0, isPending: false };
+                const displayBal = balData.balance;
+                const isPendingTxn = balData.isPending || txn.status === 'pending';
+                const isDimmed = txn.status === 'rejected' || txn.status === 'canceled';
 
-              return (
-                <motion.div
-                  key={txn.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                // Swipeable row for pending requests created by current user (iOS-style swipe to delete)
+                if (isCreator && txn.status === 'pending') {
+                  return (
+                    <SwipeablePendingRow
+                      key={txn.id}
+                      txn={txn}
+                      amount={amount}
+                      willGet={willGet}
+                      timeStr={timeStr}
+                      status={status}
+                      displayBal={displayBal}
+                      isOpen={swipedOpenTxnId === txn.id}
+                      onOpenChange={(open) => setSwipedOpenTxnId(open ? txn.id : null)}
+                      onDelete={() => handleDeletePending(txn.id)}
+                    />
+                  );
+                }
+
+                return (
+                  <motion.div
+                    key={txn.id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{
+                      opacity: 0,
+                      height: 0,
+                      overflow: 'hidden',
+                      transition: {
+                        height: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
+                        opacity: { duration: 0.18 },
+                      },
+                    }}
+                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
                   style={{
                     padding: 'clamp(0.75rem, 2.5vw, 1rem) clamp(0.875rem, 3vw, 1.25rem)',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
@@ -557,6 +995,7 @@ export default function LedgerTimeline({
                 </motion.div>
               );
             })}
+            </AnimatePresence>
           </div>
         ))}
 
@@ -688,6 +1127,9 @@ export default function LedgerTimeline({
         @keyframes pulse-border {
           0%, 100% { border-color: rgba(56,151,240,0.25); }
           50% { border-color: rgba(56,151,240,0.55); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </>

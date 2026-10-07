@@ -75,6 +75,7 @@ export async function checkPhoneForContactAction(phone: string) {
       connectionId: existingConn?.id ?? null,
       hasPendingRequest: !!existingReq,
       isPendingFromMe: existingReq?.from_user_id === currentUser.id,
+      requestId: existingReq?.id ?? null,
     };
   }
 
@@ -108,7 +109,13 @@ export async function createPersonalContactAction(name: string, phone: string) {
 
     // Unique constraint violation — this owner already has a contact with this phone
     if (error.code === '23505') {
-      return { error: 'DUPLICATE' };
+      const { data: existing } = await supabaseAdmin
+        .from('connections')
+        .select('id')
+        .eq('user_a_id', currentUser.id)
+        .eq('contact_phone', trimmedPhone)
+        .maybeSingle();
+      return { error: 'DUPLICATE', connectionId: existing?.id };
     }
 
     // Column not found — migration was never applied to this database
@@ -131,7 +138,9 @@ export async function createPersonalContactAction(name: string, phone: string) {
 
   console.log('[createPersonalContact] Created contact id:', data?.id);
   revalidatePath('/connections');
-  return { success: true };
+  revalidatePath('/dashboard');
+  revalidatePath('/');
+  return { success: true, connectionId: data?.id };
 }
 
 
@@ -285,6 +294,48 @@ export async function sendConnectionRequestAction(toUserId: string) {
   return { success: true };
 }
 
+// ─── Cancel sent connection request ───────────────────────────
+export async function cancelConnectionRequestAction(toUserIdOrRequestId: string) {
+  const currentUser = await getUserFromSession();
+  if (!currentUser) return { error: 'Unauthorized' };
+
+  // First try finding by request ID
+  let { data: request } = await supabaseAdmin
+    .from('connection_requests')
+    .select('id, from_user_id, status')
+    .eq('id', toUserIdOrRequestId)
+    .maybeSingle();
+
+  // If not found by request ID, try finding by to_user_id from current user
+  if (!request) {
+    const { data: reqByUser } = await supabaseAdmin
+      .from('connection_requests')
+      .select('id, from_user_id, status')
+      .eq('from_user_id', currentUser.id)
+      .eq('to_user_id', toUserIdOrRequestId)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    request = reqByUser;
+  }
+
+  if (!request) return { error: 'Connection request not found' };
+  if (request.from_user_id !== currentUser.id) return { error: 'Unauthorized' };
+
+  const { error } = await supabaseAdmin
+    .from('connection_requests')
+    .delete()
+    .eq('id', request.id);
+
+  if (error) return { error: 'Failed to cancel request' };
+
+  revalidatePath('/connections');
+  revalidatePath('/dashboard');
+  revalidatePath('/notifications');
+  revalidatePath('/');
+  return { success: true };
+}
+
 // ─── Respond to connection request ───────────────────────────
 export async function respondToConnectionRequestAction(
   requestId: string,
@@ -309,6 +360,7 @@ export async function respondToConnectionRequestAction(
 
   if (action === 'accepted') {
     let upgraded = false;
+    let newConnectionId: string | null = null;
     
     // Check if receiver (User B) matches a personal contact created by sender (User A)
     const { data: acceptingUser } = await supabaseAdmin.from('users').select('phone').eq('id', request.to_user_id).single();
@@ -325,6 +377,7 @@ export async function respondToConnectionRequestAction(
         await supabaseAdmin.from('connections').update({ user_b_id: request.to_user_id }).eq('id', personalConn.id);
         await supabaseAdmin.from('transactions').update({ counterparty_id: request.to_user_id }).eq('connection_id', personalConn.id).is('counterparty_id', null);
         upgraded = true;
+        newConnectionId = personalConn.id;
       }
     }
     
@@ -344,6 +397,7 @@ export async function respondToConnectionRequestAction(
           await supabaseAdmin.from('connections').update({ user_b_id: request.from_user_id }).eq('id', reverseConn.id);
           await supabaseAdmin.from('transactions').update({ counterparty_id: request.from_user_id }).eq('connection_id', reverseConn.id).is('counterparty_id', null);
           upgraded = true;
+          newConnectionId = reverseConn.id;
         }
       }
     }
@@ -370,12 +424,22 @@ export async function respondToConnectionRequestAction(
           .from('connections')
           .update({ deleted_by_a: false, deleted_by_b: false })
           .eq('id', existingConn.id);
+        newConnectionId = existingConn.id;
       } else {
-        await supabaseAdmin
+        const { data: insertedConn } = await supabaseAdmin
           .from('connections')
-          .insert({ user_a_id: userA, user_b_id: userB });
+          .insert({ user_a_id: userA, user_b_id: userB })
+          .select('id')
+          .single();
+        newConnectionId = insertedConn?.id ?? null;
       }
     }
+
+    revalidatePath('/connections');
+    revalidatePath('/dashboard');
+    revalidatePath('/notifications');
+    revalidatePath('/');
+    return { success: true, connectionId: newConnectionId };
   }
 
   revalidatePath('/connections');
@@ -571,7 +635,16 @@ export async function deleteLedgerAction(connectionId: string): Promise<{ error?
       .eq('id', connectionId)
       .eq('user_a_id', currentUser.id);
 
-    if (error) return { error: 'Failed to delete contact' };
+    if (error) {
+      console.warn('[deleteLedgerAction] hard delete failed, falling back to soft delete:', error.message);
+      const { error: softError } = await supabaseAdmin
+        .from('connections')
+        .update({ deleted_by_a: true })
+        .eq('id', connectionId)
+        .eq('user_a_id', currentUser.id);
+
+      if (softError) return { error: 'Failed to delete contact' };
+    }
   } else {
     // Platform connection — soft delete only the caller's side
     const updateField = isUserA ? { deleted_by_a: true } : { deleted_by_b: true };
@@ -585,6 +658,8 @@ export async function deleteLedgerAction(connectionId: string): Promise<{ error?
 
   revalidatePath('/dashboard');
   revalidatePath('/connections');
+  revalidatePath(`/ledger/${connectionId}`);
+  revalidatePath('/');
   return { success: true };
 }
 

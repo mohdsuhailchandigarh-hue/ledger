@@ -92,6 +92,7 @@ function formatWhatsAppDate(dateStr?: string | null): string {
 
 export default function ConnectionGrid({ connections, currentUserId, balances, latestTransactions }: Props) {
   const router = useRouter();
+  const [items, setItems] = useState<Connection[]>(connections);
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [activeLedger, setActiveLedger] = useState<{
@@ -116,6 +117,31 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    setItems(connections);
+  }, [connections]);
+
+  const handleDeleteSuccess = useCallback((deletedId: string) => {
+    setItems((prev) => prev.filter((c) => c.id !== deletedId));
+  }, []);
+
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      router.refresh();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        router.refresh();
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [router]);
 
   const openLedger = useCallback(async (connId: string, peerData: any, currentBalance: number) => {
     // 1. Immediately show the in-app bottom sheet with instant skeleton (0ms!)
@@ -267,9 +293,9 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
   }, [isFocused]);
 
   const filteredConnections = useMemo(() => {
-    if (!query.trim()) return connections;
+    if (!query.trim()) return items;
     const q = query.toLowerCase().trim();
-    return connections.filter((conn) => {
+    return items.filter((conn) => {
       if (conn.isUnclaimedForMe) {
         const aName = conn.user_a?.name?.toLowerCase() || '';
         const aUsername = conn.user_a?.username?.toLowerCase() || '';
@@ -292,9 +318,9 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
         latestNote.includes(q)
       );
     });
-  }, [connections, query, currentUserId, latestTransactions]);
+  }, [items, query, currentUserId, latestTransactions]);
 
-  if (connections.length === 0) {
+  if (items.length === 0) {
     return (
       <motion.div
         initial={{ opacity: 0 }}
@@ -341,7 +367,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
   return (
     <div style={{ width: '100%' }}>
       {/* Search Filter for Accounts */}
-      {connections.length > 0 && (
+      {items.length > 0 && (
         <div
           ref={searchContainerRef}
           style={{
@@ -574,8 +600,12 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                         <button
                           onClick={async () => {
                             if (!conn.requestInfo?.id) return;
-                            await respondToConnectionRequestAction(conn.requestInfo.id, 'accepted');
-                            router.refresh();
+                            const res = await respondToConnectionRequestAction(conn.requestInfo.id, 'accepted');
+                            if (res.connectionId) {
+                              router.push(`/ledger/${res.connectionId}`);
+                            } else {
+                              router.refresh();
+                            }
                           }}
                           style={{
                             fontSize: '0.75rem',
@@ -1092,9 +1122,13 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
                       if (!selectedUnclaimedConn.requestInfo?.id) return;
                       setIsSendingUnclaimedReq(true);
                       try {
-                        await respondToConnectionRequestAction(selectedUnclaimedConn.requestInfo.id, 'accepted');
+                        const res = await respondToConnectionRequestAction(selectedUnclaimedConn.requestInfo.id, 'accepted');
                         setSelectedUnclaimedConn(null);
-                        router.refresh();
+                        if (res.connectionId) {
+                          router.push(`/ledger/${res.connectionId}`);
+                        } else {
+                          router.refresh();
+                        }
                       } finally {
                         setIsSendingUnclaimedReq(false);
                       }
@@ -1226,6 +1260,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
         currentUserId={currentUserId}
         onClose={closeLedger}
         onRefresh={reloadActiveLedger}
+        onDeleteSuccess={handleDeleteSuccess}
       />
     </div>
   );

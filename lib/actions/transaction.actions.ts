@@ -132,6 +132,51 @@ export async function respondToTransactionAction(
   return { success: true };
 }
 
+// ─── Cancel / Delete pending transaction created by current user ───
+export async function cancelPendingTransactionAction(transactionId: string) {
+  const currentUser = await getUserFromSession();
+  if (!currentUser) return { error: 'Unauthorized' };
+
+  // Fetch transaction to verify ownership and pending status
+  const { data: txn, error: fetchError } = await supabaseAdmin
+    .from('transactions')
+    .select('id, connection_id, creator_id, status')
+    .eq('id', transactionId)
+    .single();
+
+  if (fetchError || !txn) {
+    return { error: 'Transaction not found' };
+  }
+
+  if (txn.creator_id !== currentUser.id) {
+    return { error: 'Only the creator can cancel this request' };
+  }
+
+  if (txn.status !== 'pending') {
+    return { error: 'Only pending requests can be canceled' };
+  }
+
+  // Delete transaction from database
+  const { error: deleteError } = await supabaseAdmin
+    .from('transactions')
+    .delete()
+    .eq('id', transactionId)
+    .eq('creator_id', currentUser.id)
+    .eq('status', 'pending');
+
+  if (deleteError) {
+    console.error('[cancelPendingTransactionAction] Delete error:', deleteError);
+    return { error: 'Failed to cancel request' };
+  }
+
+  revalidatePath(`/ledger/${txn.connection_id}`);
+  revalidatePath('/dashboard');
+  revalidatePath('/notifications');
+  revalidatePath('/');
+
+  return { success: true };
+}
+
 // ─── Get pending actions for current user ───────────────────
 export async function getPendingActionsAction() {
   const currentUser = await getUserFromSession();

@@ -29,6 +29,7 @@ type Props = {
   currentUserId: string;
   onClose: () => void;
   onRefresh: () => void;
+  onDeleteSuccess?: (connectionId: string) => void;
 };
 
 export default function ConnectionLedgerModal({
@@ -36,6 +37,7 @@ export default function ConnectionLedgerModal({
   currentUserId,
   onClose,
   onRefresh,
+  onDeleteSuccess,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -157,6 +159,7 @@ export default function ConnectionLedgerModal({
               initialHasMore={activeLedger.hasMore}
               onBack={dismissSheet}
               onRefresh={onRefresh}
+              onDeleteSuccess={onDeleteSuccess}
               totalCount={activeLedger.totalCount}
               totalPendingCount={activeLedger.totalPendingCount}
             />

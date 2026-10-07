@@ -105,11 +105,37 @@ export default function ConnectionsClient({
     totalPendingCount?: number;
   } | null>(null);
 
+  const [items, setItems] = useState<Connection[]>(connections);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    setItems(connections);
+  }, [connections]);
+
+  const handleDeleteSuccess = useCallback((deletedId: string) => {
+    setItems((prev) => prev.filter((c) => c.id !== deletedId));
+  }, []);
+
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      router.refresh();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        router.refresh();
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [router]);
 
   const openLedger = useCallback(async (connId: string, peerData: any, currentBalance: number = 0) => {
     // 1. Immediately show the in-app bottom sheet with instant skeleton (0ms!)
@@ -197,8 +223,8 @@ export default function ConnectionsClient({
   }, [activeLedger, router]);
 
   // ── Derived data ──────────────────────────────────────────
-  const personalContacts = connections.filter(c => !c.user_b);
-  const platformConnections = connections.filter(c => !!c.user_b);
+  const personalContacts = items.filter(c => !c.user_b);
+  const platformConnections = items.filter(c => !!c.user_b);
 
   // Local-filtered personal contacts matching search query
   const matchingPersonalContacts = useMemo(() => {
@@ -279,7 +305,7 @@ export default function ConnectionsClient({
         if (res.error === 'DUPLICATE') {
           setContactFormState({
             kind: 'duplicate_contact',
-            connectionId: '',
+            connectionId: res.connectionId || '',
             currentName: contactName,
           });
           startTransition(() => router.refresh());
@@ -303,8 +329,12 @@ export default function ConnectionsClient({
 
       setContactName('');
       setContactPhone('');
-      setContactFormState({ kind: 'success', message: `Contact "${contactName}" added successfully!` });
-      startTransition(() => router.refresh());
+      if (res.connectionId) {
+        router.push(`/ledger/${res.connectionId}`);
+      } else {
+        setContactFormState({ kind: 'success', message: `Contact "${contactName}" added successfully!` });
+        startTransition(() => router.refresh());
+      }
     } catch (err: unknown) {
       setContactFormState({
         kind: 'error',
@@ -356,7 +386,11 @@ export default function ConnectionsClient({
   }
 
   async function handleRespond(reqId: string, action: 'accepted' | 'rejected') {
-    await respondToConnectionRequestAction(reqId, action);
+    const res = await respondToConnectionRequestAction(reqId, action);
+    if (action === 'accepted' && res.connectionId) {
+      router.push(`/ledger/${res.connectionId}`);
+      return;
+    }
     startTransition(() => router.refresh());
   }
 
@@ -1051,11 +1085,11 @@ export default function ConnectionsClient({
               padding: '2px 7px',
             }}
           >
-            {connections.length}
+            {items.length}
           </span>
         </h2>
 
-        {connections.length === 0 ? (
+        {items.length === 0 ? (
           <div
             className="card"
             style={{ padding: '3rem', textAlign: 'center', border: '1px dashed var(--border-default)', background: 'transparent' }}
@@ -1070,7 +1104,7 @@ export default function ConnectionsClient({
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {connections.map((conn, i) => {
+            {items.map((conn, i) => {
               const isPersonal = !conn.user_b;
               const peerName = isPersonal
                 ? (conn.contact_name || 'Contact')
@@ -1110,7 +1144,7 @@ export default function ConnectionsClient({
                       justifyContent: 'space-between',
                       padding: '0.75rem 0.25rem',
                       gap: '1rem',
-                      borderBottom: i === connections.length - 1 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+                      borderBottom: i === items.length - 1 ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
                       transition: 'background 0.15s ease',
                       borderRadius: '8px',
                       cursor: 'pointer',
@@ -1221,6 +1255,7 @@ export default function ConnectionsClient({
         currentUserId={currentUserId}
         onClose={closeLedger}
         onRefresh={reloadActiveLedger}
+        onDeleteSuccess={handleDeleteSuccess}
       />
     </div>
   );

@@ -127,10 +127,10 @@ export default function DashboardTopBar({
         }}
       >
         {/* Elastic Overscroll Dense Blur Shield — covers rubber-band pull down up to 800px above */}
-        <div className="topbar-blur-shield" aria-hidden="true" />
+        <div className="topbar-blur-shield" aria-hidden="true" style={{ zIndex: 0 }} />
 
         {/* Progressive Blur Veil — starts light blur at CTA bottom, builds to proper dense blur at the top */}
-        <div className="topbar-progressive-veil" aria-hidden="true">
+        <div className="topbar-progressive-veil" aria-hidden="true" style={{ zIndex: 1 }}>
           <div className="veil-blur-base" />
           <div className="veil-blur-mid" />
           <div className="veil-blur-dense" />
@@ -155,7 +155,8 @@ export default function DashboardTopBar({
             maxWidth: '1200px',
             margin: '0 auto',
             transformOrigin: 'top center',
-            zIndex: 2,
+            zIndex: 10,
+            isolation: 'isolate',
             cursor: 'pointer',
             borderRadius: '9999px',
             boxSizing: 'border-box',

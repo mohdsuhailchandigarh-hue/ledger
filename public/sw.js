@@ -1,7 +1,7 @@
 // Shared Ledger — Progressive Web App Service Worker
 // Offline App Shell & Static Asset Caching
 
-const CACHE_NAME = 'shared-ledger-shell-v1';
+const CACHE_NAME = 'shared-ledger-shell-v2';
 
 // Essential static assets to pre-cache on install
 const PRECACHE_URLS = [
@@ -47,17 +47,35 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 1. Database queries, Supabase calls, API routes, and Server Actions MUST go to network
+  const isRscRequest =
+    request.headers.get('rsc') === '1' ||
+    request.headers.has('next-router-state-tree') ||
+    request.headers.has('next-router-prefetch') ||
+    url.searchParams.has('_rsc');
+
+  const isDynamicRoute =
+    url.pathname.startsWith('/dashboard') ||
+    url.pathname.startsWith('/connections') ||
+    url.pathname.startsWith('/ledger') ||
+    url.pathname.startsWith('/notifications');
+
+  // 1. Database queries, Supabase calls, API routes, Server Actions, RSC payloads, and live app views MUST go to network
   if (
     url.pathname.startsWith('/api/') ||
     url.hostname.includes('supabase.co') ||
     request.method !== 'GET' ||
     request.headers.get('x-nextjs-data') ||
-    request.headers.get('next-action')
+    request.headers.get('next-action') ||
+    isRscRequest ||
+    isDynamicRoute
   ) {
-    // Network-Only for dynamic data / actions
+    // Network-Only for dynamic data / actions / RSC / live views
     event.respondWith(
       fetch(request).catch(() => {
+        // Fallback for offline navigation
+        if (request.mode === 'navigate') {
+          return caches.match('/').then((cached) => cached || new Response('Offline', { status: 503 }));
+        }
         return new Response(
           JSON.stringify({ error: 'offline', message: 'You are currently offline. Live database queries require an internet connection.' }),
           {

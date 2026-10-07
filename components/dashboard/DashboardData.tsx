@@ -42,7 +42,7 @@ export default async function DashboardData({ user }: DashboardDataProps) {
       .from('connections')
       .select(`
         id, created_at, contact_name, contact_phone,
-        user_a_id, user_b_id,
+        user_a_id, user_b_id, deleted_by_a,
         user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
         user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
       `)
@@ -80,6 +80,7 @@ export default async function DashboardData({ user }: DashboardDataProps) {
       .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`);
 
     platformConns = fallbackPlatformResult.data ?? [];
+    personalConns = ((personalConnsResult.data ?? []) as any[]).filter((c) => !c.deleted_by_a);
   } else {
     const rawPlatform = (platformConnsResult.data ?? []) as any[];
     platformConns = rawPlatform.filter((c) => {
@@ -87,7 +88,7 @@ export default async function DashboardData({ user }: DashboardDataProps) {
       if (c.user_b_id === user.id) return !c.deleted_by_b;
       return true;
     });
-    personalConns = (personalConnsResult.data ?? []) as any[];
+    personalConns = ((personalConnsResult.data ?? []) as any[]).filter((c) => !c.deleted_by_a);
   }
 
   // Find offline contacts created by other users matching this user's registered phone
@@ -99,15 +100,17 @@ export default async function DashboardData({ user }: DashboardDataProps) {
         .from('connections')
         .select(`
           id, created_at, contact_name, contact_phone,
-          user_a_id, user_b_id,
+          user_a_id, user_b_id, deleted_by_a,
           user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url)
         `)
         .is('user_b_id', null)
         .neq('user_a_id', user.id)
         .or(`contact_phone.eq.${cleanDigits},contact_phone.eq.+91${cleanDigits},contact_phone.ilike.%${cleanDigits}`);
 
-      if (unclaimedData && unclaimedData.length > 0) {
-        const userAIds = unclaimedData.map((c) => c.user_a_id).filter(Boolean);
+      const filteredUnclaimed = ((unclaimedData ?? []) as any[]).filter((c) => !c.deleted_by_a);
+
+      if (filteredUnclaimed && filteredUnclaimed.length > 0) {
+        const userAIds = filteredUnclaimed.map((c) => c.user_a_id).filter(Boolean);
         const { data: reqs } = await supabaseAdmin
           .from('connection_requests')
           .select('id, status, from_user_id, to_user_id')
@@ -126,7 +129,7 @@ export default async function DashboardData({ user }: DashboardDataProps) {
           };
         }
 
-        unclaimedConns = unclaimedData.map((c) => ({
+        unclaimedConns = filteredUnclaimed.map((c) => ({
           ...c,
           isUnclaimedForMe: true,
           requestInfo: reqMap[c.user_a_id] || null,

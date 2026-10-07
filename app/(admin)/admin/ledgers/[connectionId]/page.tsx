@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 type Params = Promise<{ connectionId: string }>;
 
 export default async function AdminLedgerRedirectPage({ params }: { params: Params }) {

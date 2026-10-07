@@ -8,7 +8,7 @@ import AnimatedCounter from '@/components/motion/AnimatedCounter';
 import { Plus, ArrowLeft, Trash2, AlertTriangle, X, Edit2, Check, Sparkles, UserPlus, Clock, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { deleteLedgerAction, updateContactNameAction, sendConnectionRequestAction, respondToConnectionRequestAction } from '@/lib/actions/connection.actions';
+import { deleteLedgerAction, updateContactNameAction, sendConnectionRequestAction, respondToConnectionRequestAction, cancelConnectionRequestAction } from '@/lib/actions/connection.actions';
 import { loadMoreTransactionsAction } from '@/lib/actions/transaction.actions';
 
 type Transaction = {
@@ -32,6 +32,7 @@ type Props = {
   initialHasMore?: boolean;
   onBack?: () => void;
   onRefresh?: () => void | Promise<void>;
+  onDeleteSuccess?: (connectionId: string) => void;
   totalCount?: number;
   totalPendingCount?: number;
   registeredUser?: { id: string; name: string; username: string; avatar_url?: string | null } | null;
@@ -48,6 +49,7 @@ export default function LedgerClient({
   initialHasMore,
   onBack,
   onRefresh,
+  onDeleteSuccess,
   totalCount,
   totalPendingCount,
   registeredUser,
@@ -168,6 +170,35 @@ export default function LedgerClient({
     }
   };
 
+  const [isCancelingReq, setIsCancelingReq] = useState(false);
+
+  const handleCancelSharedRequest = async () => {
+    if (!registeredUser) return;
+    setIsCancelingReq(true);
+    try {
+      const res = await cancelConnectionRequestAction(currentReqId || registeredUser.id);
+      if (res.error) {
+        alert(res.error);
+      } else {
+        setReqStatus('none');
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to cancel request');
+    } finally {
+      setIsCancelingReq(false);
+    }
+  };
+
+  const handlePendingTxnDeleted = useCallback((deletedTxnId: string) => {
+    setItems((prev) => prev.filter((t) => t.id !== deletedTxnId));
+    setPendingCount((prev) => Math.max(0, prev - 1));
+    setTotalEntries((prev) => Math.max(0, prev - 1));
+    if (onRefresh) {
+      onRefresh();
+    }
+  }, [onRefresh]);
+
   useEffect(() => {
     setItems(transactions);
     setHasMore(initialHasMore ?? (transactions.length >= 50));
@@ -225,10 +256,14 @@ export default function LedgerClient({
       if (result.error) {
         setDeleteError(result.error);
       } else {
+        if (onDeleteSuccess) {
+          onDeleteSuccess(connectionId);
+        }
         if (onBack) {
           onBack();
         } else {
           router.push('/dashboard');
+          router.refresh();
         }
       }
     });
@@ -300,7 +335,8 @@ export default function LedgerClient({
               borderTopRightRadius: '28px',
               display: 'flex',
               flexDirection: 'column',
-              zIndex: 2,
+              zIndex: 10,
+              isolation: 'isolate',
               touchAction: 'none',
               userSelect: 'none',
               WebkitUserSelect: 'none',
@@ -348,10 +384,9 @@ export default function LedgerClient({
                 onClick={() => {
                   if (onBack) {
                     onBack();
-                  } else if (typeof window !== 'undefined' && window.history.length > 1) {
-                    router.back();
                   } else {
                     router.push('/dashboard');
+                    router.refresh();
                   }
                 }}
                 whileHover={{ scale: 1.05 }}
@@ -665,22 +700,45 @@ export default function LedgerClient({
                 )}
 
                 {reqStatus === 'pending_sent' && (
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      padding: '0.4rem 0.85rem',
-                      borderRadius: '10px',
-                      background: 'rgba(255, 255, 255, 0.06)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#94a3b8',
-                      fontSize: '0.785rem',
-                      fontWeight: 600,
-                    }}
-                  >
-                    <Clock size={13} />
-                    <span>Connection Request Pending</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        padding: '0.4rem 0.85rem',
+                        borderRadius: '10px',
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        color: '#94a3b8',
+                        fontSize: '0.785rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Clock size={13} />
+                      <span>Connection Request Pending</span>
+                    </div>
+                    <motion.button
+                      whileTap={{ scale: 0.94 }}
+                      onClick={handleCancelSharedRequest}
+                      disabled={isCancelingReq}
+                      style={{
+                        padding: '0.4rem 0.75rem',
+                        borderRadius: '10px',
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        border: '1px solid rgba(239, 68, 68, 0.28)',
+                        color: '#ef4444',
+                        fontSize: '0.785rem',
+                        fontWeight: 600,
+                        cursor: isCancelingReq ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <X size={13} />
+                      <span>{isCancelingReq ? 'Canceling...' : 'Cancel Request'}</span>
+                    </motion.button>
                   </div>
                 )}
 
@@ -1016,6 +1074,7 @@ export default function LedgerClient({
             hasMore={hasMore}
             isLoadingMore={isLoadingMore}
             onLoadMore={handleLoadMore}
+            onPendingTxnDeleted={handlePendingTxnDeleted}
           />
         </div>
       </div>

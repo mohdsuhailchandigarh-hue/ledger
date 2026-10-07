@@ -10,11 +10,13 @@ import {
   Loader2,
   ArrowLeft,
   Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import {
   createPersonalContactAction,
   checkPhoneForContactAction,
   sendConnectionRequestAction,
+  respondToConnectionRequestAction,
 } from '@/lib/actions/connection.actions';
 import { useRouter } from 'next/navigation';
 import { useSwipeDownDismiss } from '@/lib/hooks/useSwipeDownDismiss';
@@ -103,6 +105,10 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
   // Found user states
   const [foundUser, setFoundUser] = useState<FoundUser | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [existingConnectionId, setExistingConnectionId] = useState<string | null>(null);
+  const [duplicateConnectionId, setDuplicateConnectionId] = useState<string | null>(null);
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
+  const [acceptingRequest, setAcceptingRequest] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [isPendingFromMe, setIsPendingFromMe] = useState(false);
   const [sendingRequest, setSendingRequest] = useState(false);
@@ -127,6 +133,10 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
     setInputError(null);
     setFoundUser(null);
     setIsConnected(false);
+    setExistingConnectionId(null);
+    setDuplicateConnectionId(null);
+    setPendingRequestId(null);
+    setAcceptingRequest(false);
     setHasPendingRequest(false);
     setRequestSentSuccess(false);
     setPersonalName('');
@@ -236,12 +246,17 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
       if (res.existingUser) {
         setFoundUser(res.existingUser);
         setIsConnected(!!res.isConnected);
+        setExistingConnectionId(res.connectionId ?? null);
         setHasPendingRequest(!!res.hasPendingRequest);
         setIsPendingFromMe(!!res.isPendingFromMe);
+        setPendingRequestId(res.requestId ?? null);
         setRequestSentSuccess(false);
         setStep('found');
       } else {
         setFoundUser(null);
+        setExistingConnectionId(null);
+        setDuplicateConnectionId(null);
+        setPendingRequestId(null);
         setPersonalName('');
         setPersonalError(null);
         setPersonalSuccess(null);
@@ -281,6 +296,29 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
     }
   };
 
+  // Step 2A (Alternative) -> Accept incoming request and open connection directly
+  const handleAcceptRequest = async () => {
+    if (!pendingRequestId) return;
+    setAcceptingRequest(true);
+    try {
+      const res = await respondToConnectionRequestAction(pendingRequestId, 'accepted');
+      if (res.error) {
+        alert(res.error);
+      } else {
+        dismissSheet();
+        if (res.connectionId) {
+          router.push(`/ledger/${res.connectionId}`);
+        } else {
+          router.refresh();
+        }
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to accept connection request');
+    } finally {
+      setAcceptingRequest(false);
+    }
+  };
+
   // Step 2B -> Add as Personal Contact in ledger
   const handleAddPersonalContact = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -291,24 +329,30 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
 
     setAddingPersonal(true);
     setPersonalError(null);
+    setDuplicateConnectionId(null);
     try {
       const res = await createPersonalContactAction(personalName.trim(), `+91${phone}`);
       if (res.error) {
         if (res.error === 'DUPLICATE') {
           setPersonalError('A contact with this mobile number already exists in your ledger.');
+          if (res.connectionId) {
+            setDuplicateConnectionId(res.connectionId);
+          }
         } else {
           setPersonalError(res.error);
         }
         return;
       }
 
-      setPersonalSuccess(`Account for "${personalName.trim()}" created successfully!`);
-      startTransition(() => {
-        router.refresh();
-      });
+      setPersonalSuccess(`Account for "${personalName.trim()}" created successfully! Redirecting...`);
       setTimeout(() => {
         dismissSheet();
-      }, 1300);
+        if (res.connectionId) {
+          router.push(`/ledger/${res.connectionId}`);
+        } else {
+          router.refresh();
+        }
+      }, 400);
     } catch (err: any) {
       setPersonalError(err.message || 'Failed to create contact account.');
     } finally {
@@ -857,23 +901,53 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                         >
                           You are already connected with this user!
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleClose}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            borderRadius: '9999px',
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            border: 'none',
-                            color: '#ffffff',
-                            fontSize: '0.875rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Close
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {existingConnectionId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                dismissSheet();
+                                router.push(`/ledger/${existingConnectionId}`);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '0.75rem',
+                                borderRadius: '9999px',
+                                background: 'linear-gradient(135deg, #065DE8 0%, #1e75ff 52%, #3897f0 100%)',
+                                border: 'none',
+                                color: '#ffffff',
+                                fontSize: '0.875rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                boxShadow: '0 4px 16px rgba(6, 93, 232, 0.35)',
+                              }}
+                            >
+                              <ExternalLink size={16} />
+                              <span>Open Connection Ledger</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleClose}
+                            style={{
+                              width: '100%',
+                              padding: '0.75rem',
+                              borderRadius: '9999px',
+                              background: 'rgba(255, 255, 255, 0.1)',
+                              border: 'none',
+                              color: '#ffffff',
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Close
+                          </button>
+                        </div>
                       </div>
                     ) : hasPendingRequest ? (
                       <div>
@@ -894,23 +968,60 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                             ? 'Connection request already sent and pending.'
                             : 'This user has already sent you a connection request!'}
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleClose}
-                          style={{
-                            width: '100%',
-                            padding: '0.75rem',
-                            borderRadius: '9999px',
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            border: 'none',
-                            color: '#ffffff',
-                            fontSize: '0.875rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Close
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {!isPendingFromMe && pendingRequestId && (
+                            <button
+                              type="button"
+                              onClick={handleAcceptRequest}
+                              disabled={acceptingRequest}
+                              style={{
+                                width: '100%',
+                                padding: '0.75rem',
+                                borderRadius: '9999px',
+                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                border: 'none',
+                                color: '#ffffff',
+                                fontSize: '0.875rem',
+                                fontWeight: 700,
+                                cursor: acceptingRequest ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
+                              }}
+                            >
+                              {acceptingRequest ? (
+                                <>
+                                  <Loader2 size={16} className="animate-spin" />
+                                  <span>Accepting...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Check size={16} />
+                                  <span>Accept & Open Connection</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleClose}
+                            style={{
+                              width: '100%',
+                              padding: '0.75rem',
+                              borderRadius: '9999px',
+                              background: 'rgba(255, 255, 255, 0.1)',
+                              border: 'none',
+                              color: '#ffffff',
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Close
+                          </button>
+                        </div>
                       </div>
                     ) : requestSentSuccess ? (
                       <div
@@ -1107,6 +1218,36 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                         <AlertCircle size={13} color="#f43f5e" style={{ flexShrink: 0 }} />
                         <span>{personalError}</span>
                       </div>
+                    )}
+
+                    {/* Open Duplicate Contact Ledger Button */}
+                    {duplicateConnectionId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          dismissSheet();
+                          router.push(`/ledger/${duplicateConnectionId}`);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '0.625rem',
+                          borderRadius: '9999px',
+                          background: 'rgba(56, 151, 240, 0.15)',
+                          border: '1px solid rgba(56, 151, 240, 0.3)',
+                          color: '#3897f0',
+                          fontSize: '0.8125rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          marginBottom: '0.75rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.375rem',
+                        }}
+                      >
+                        <ExternalLink size={14} />
+                        <span>Open Existing Contact Ledger</span>
+                      </button>
                     )}
 
                     {/* Success message */}
