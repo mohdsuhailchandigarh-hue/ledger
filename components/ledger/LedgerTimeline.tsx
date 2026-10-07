@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import ApprovalOverlay from './ApprovalOverlay';
 import { cancelPendingTransactionAction } from '@/lib/actions/transaction.actions';
+import { useRouter } from 'next/navigation';
 
 type Transaction = {
   id: string;
@@ -199,14 +200,21 @@ function SwipeablePendingRow({
         navigator.vibrate(20);
       } catch {}
     }
-    // Slide completely offscreen with spring-like velocity, then invoke optimistic delete
-    animate(x, -360, {
-      duration: 0.22,
-      ease: [0.32, 0.72, 0, 1],
-      onComplete: () => {
+    let called = false;
+    const safeDelete = () => {
+      if (!called) {
+        called = true;
         onDelete();
-      },
+      }
+    };
+    // Slide completely offscreen with spring-like velocity, then invoke optimistic delete
+    animate(x, -380, {
+      duration: 0.18,
+      ease: [0.32, 0.72, 0, 1],
+      onComplete: safeDelete,
     });
+    // Safety fallback so delete is never dropped
+    setTimeout(safeDelete, 220);
   };
 
   return (
@@ -302,8 +310,8 @@ function SwipeablePendingRow({
       <motion.div
         drag="x"
         dragDirectionLock
-        dragConstraints={{ left: -88, right: 0 }}
-        dragElastic={{ left: 0.35, right: 0.04 }}
+        dragConstraints={{ left: -140, right: 0 }}
+        dragElastic={{ left: 0.25, right: 0.04 }}
         style={{
           x,
           touchAction: 'pan-y',
@@ -329,11 +337,11 @@ function SwipeablePendingRow({
         }}
         onDragEnd={(_, info) => {
           const curX = x.get();
-          if (curX < -135 || info.velocity.x < -500) {
-            // Full swipe or high-velocity flick
+          if (curX < -95 || info.velocity.x < -300) {
+            // Full swipe or high-velocity flick past delete threshold
             triggerDelete();
-          } else if (curX < -44 || info.velocity.x < -200) {
-            // Snap open
+          } else if (curX < -35 || info.velocity.x < -150) {
+            // Snap open to reveal Delete button
             animate(x, -88, { type: 'spring', stiffness: 450, damping: 32 });
             onOpenChange(true);
           } else {
@@ -533,9 +541,17 @@ export default function LedgerTimeline({
   onLoadMore,
   onPendingTxnDeleted,
 }: Props) {
+  const router = useRouter();
   const [approvalTxn, setApprovalTxn] = useState<Transaction | null>(null);
   const [swipedOpenTxnId, setSwipedOpenTxnId] = useState<string | null>(null);
+  const [deletedTxnIds, setDeletedTxnIds] = useState<Set<string>>(new Set());
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Compute active transactions excluding any optimistically deleted pending transactions
+  const visibleTransactions = useMemo(() => {
+    if (deletedTxnIds.size === 0) return transactions;
+    return transactions.filter((t) => !deletedTxnIds.has(t.id));
+  }, [transactions, deletedTxnIds]);
 
   const handleDeletePending = useCallback(
     async (txnId: string) => {
@@ -545,7 +561,11 @@ export default function LedgerTimeline({
         } catch {}
       }
 
-      // Optimistically remove from state so UI updates instantly
+      // Close swiped open state and remove immediately from visible items (0ms latency!)
+      setSwipedOpenTxnId((cur) => (cur === txnId ? null : cur));
+      setDeletedTxnIds((prev) => new Set(prev).add(txnId));
+
+      // Optimistically remove from state in parent so counts/items update instantly
       if (onPendingTxnDeleted) {
         onPendingTxnDeleted(txnId);
       }
@@ -555,13 +575,28 @@ export default function LedgerTimeline({
         const res = await cancelPendingTransactionAction(txnId);
         if (res && res.error) {
           alert(res.error);
+          // Rollback on server error
+          setDeletedTxnIds((prev) => {
+            const next = new Set(prev);
+            next.delete(txnId);
+            return next;
+          });
           if (onLoadMore) onLoadMore();
+        } else {
+          // Refresh background caches seamlessly
+          router.refresh();
         }
       } catch (err: any) {
         alert(err?.message || 'Failed to cancel request');
+        // Rollback on network failure
+        setDeletedTxnIds((prev) => {
+          const next = new Set(prev);
+          next.delete(txnId);
+          return next;
+        });
       }
     },
-    [onPendingTxnDeleted, onLoadMore]
+    [onPendingTxnDeleted, onLoadMore, router]
   );
 
   // 1. Compute running balance after each transaction (backwards from current netBalance)
@@ -570,7 +605,7 @@ export default function LedgerTimeline({
     const map = new Map<string, { balance: number; isPending: boolean }>();
     let currentConfirmed = netBalance;
 
-    for (const txn of transactions) {
+    for (const txn of visibleTransactions) {
       if (txn.status === 'pending') {
         const potentialDelta = getTxnPotentialDelta(txn, currentUserId);
         const pendingEstimatedBal = currentConfirmed + potentialDelta;
@@ -581,7 +616,7 @@ export default function LedgerTimeline({
       }
     }
     return map;
-  }, [transactions, currentUserId, netBalance]);
+  }, [visibleTransactions, currentUserId, netBalance]);
 
   // 2. Group transactions by date (Today, Yesterday, Date) maintaining descending order
   const groupedSections = useMemo(() => {
@@ -593,7 +628,7 @@ export default function LedgerTimeline({
     const sections: Section[] = [];
     let currentSection: Section | null = null;
 
-    for (const txn of transactions) {
+    for (const txn of visibleTransactions) {
       const { groupKey, groupLabel } = getTxnDateInfo(txn);
       if (!currentSection || currentSection.key !== groupKey) {
         currentSection = { key: groupKey, label: groupLabel, items: [] };
@@ -602,7 +637,7 @@ export default function LedgerTimeline({
       currentSection.items.push(txn);
     }
     return sections;
-  }, [transactions]);
+  }, [visibleTransactions]);
 
   // Infinite scroll trigger via IntersectionObserver
   useEffect(() => {
@@ -622,7 +657,7 @@ export default function LedgerTimeline({
     };
   }, [hasMore, isLoadingMore, onLoadMore]);
 
-  if (transactions.length === 0) {
+  if (visibleTransactions.length === 0) {
     return (
       <div
         style={{

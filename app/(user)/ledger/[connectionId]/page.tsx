@@ -36,7 +36,7 @@ export default async function LedgerPage({
         user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
       `)
       .eq('id', connectionId)
-      .single(),
+      .maybeSingle(),
     supabaseAdmin
       .from('transactions')
       .select(`
@@ -53,14 +53,14 @@ export default async function LedgerPage({
       .select('net_amount')
       .eq('connection_id', connectionId)
       .eq('user_id', user.id)
-      .single(),
+      .maybeSingle(),
     supabaseAdmin
       .from('transactions')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('connection_id', connectionId),
     supabaseAdmin
       .from('transactions')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('connection_id', connectionId)
       .eq('status', 'pending'),
   ]);
@@ -99,11 +99,19 @@ export default async function LedgerPage({
   const isUserA = conn.user_a_id === user.id;
   const isUserB = conn.user_b_id === user.id;
 
-  if (!isUserA && !isUserB) notFound();
+  // Check if it's an offline contact registered matching this user's phone number
+  let isPhoneMatch = false;
+  if (!isUserA && !isUserB && conn.user_b_id === null && conn.contact_phone && user.phone) {
+    const cleanUserPhone = user.phone.replace(/\D/g, '').slice(-10);
+    const cleanContactPhone = conn.contact_phone.replace(/\D/g, '').slice(-10);
+    isPhoneMatch = cleanUserPhone.length === 10 && cleanUserPhone === cleanContactPhone;
+  }
 
-  // If user opens this account, ensure it is active and not soft-deleted
+  if (!isUserA && !isUserB && !isPhoneMatch) notFound();
+
+  // If user opens this account, ensure it is active and not soft-deleted (non-blocking)
   if ((isUserA && conn.deleted_by_a) || (isUserB && conn.deleted_by_b)) {
-    await supabaseAdmin
+    void supabaseAdmin
       .from('connections')
       .update(isUserA ? { deleted_by_a: false } : { deleted_by_b: false })
       .eq('id', connectionId);

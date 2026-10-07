@@ -528,130 +528,155 @@ export async function getMonthlyFinancialSummaryAction() {
 
 // ─── Get Single Ledger Details (Instant In-App SPA Transition) ──
 export async function getLedgerDetailsAction(connectionId: string) {
-  const currentUser = await getUserFromSession();
-  if (!currentUser) return { error: 'Unauthorized' };
+  try {
+    const currentUser = await getUserFromSession();
+    if (!currentUser) return { error: 'Unauthorized' };
 
-  const [connectionResultRaw, transactionsResult, balanceResult, countResult, pendingCountResult] = await Promise.all([
-    supabaseAdmin
-      .from('connections')
-      .select(`
-        id, user_a_id, user_b_id, contact_name, contact_phone,
-        deleted_by_a, deleted_by_b,
-        user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
-        user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
-      `)
-      .eq('id', connectionId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('transactions')
-      .select(`
-        id, amount, direction, note, status, created_at, transaction_date,
-        creator:users!transactions_creator_id_fkey(id, name, username),
-        counterparty:users!transactions_counterparty_id_fkey(id, name, username)
-      `)
-      .eq('connection_id', connectionId)
-      .order('transaction_date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(50),
-    supabaseAdmin
-      .from('connection_balances')
-      .select('net_amount')
-      .eq('connection_id', connectionId)
-      .eq('user_id', currentUser.id)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('transactions')
-      .select('*', { count: 'exact', head: true })
-      .eq('connection_id', connectionId),
-    supabaseAdmin
-      .from('transactions')
-      .select('*', { count: 'exact', head: true })
-      .eq('connection_id', connectionId)
-      .eq('status', 'pending'),
-  ]);
+    const [connectionResultRaw, transactionsResult, balanceResult, countResult, pendingCountResult] = await Promise.all([
+      supabaseAdmin
+        .from('connections')
+        .select(`
+          id, user_a_id, user_b_id, contact_name, contact_phone,
+          deleted_by_a, deleted_by_b,
+          user_a:users!connections_user_a_id_fkey(id, username, name, avatar_url),
+          user_b:users!connections_user_b_id_fkey(id, username, name, avatar_url)
+        `)
+        .eq('id', connectionId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('transactions')
+        .select(`
+          id, amount, direction, note, status, created_at, transaction_date,
+          creator:users!transactions_creator_id_fkey(id, name, username),
+          counterparty:users!transactions_counterparty_id_fkey(id, name, username)
+        `)
+        .eq('connection_id', connectionId)
+        .order('transaction_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabaseAdmin
+        .from('connection_balances')
+        .select('net_amount')
+        .eq('connection_id', connectionId)
+        .eq('user_id', currentUser.id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('transactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('connection_id', connectionId),
+      supabaseAdmin
+        .from('transactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('connection_id', connectionId)
+        .eq('status', 'pending'),
+    ]);
 
-  let connection: any = connectionResultRaw.data;
-  if (!connection) {
-    const fallback = await supabaseAdmin
-      .from('connections')
-      .select('id, user_a_id, user_b_id, contact_name, contact_phone, deleted_by_a, deleted_by_b')
-      .eq('id', connectionId)
-      .maybeSingle();
+    let connection: any = connectionResultRaw.data;
+    if (!connection) {
+      const fallback = await supabaseAdmin
+        .from('connections')
+        .select('id, user_a_id, user_b_id, contact_name, contact_phone, deleted_by_a, deleted_by_b')
+        .eq('id', connectionId)
+        .maybeSingle();
 
-    if (fallback.data) {
-      const raw = fallback.data;
-      const userIds = [raw.user_a_id, raw.user_b_id].filter(Boolean);
-      const { data: usersList } = await supabaseAdmin
-        .from('users')
-        .select('id, username, name, avatar_url')
-        .in('id', userIds);
-      const userMap = new Map((usersList || []).map((u) => [u.id, u]));
-      connection = {
-        ...raw,
-        user_a: userMap.get(raw.user_a_id) || null,
-        user_b: raw.user_b_id ? userMap.get(raw.user_b_id) || null : null,
-      };
+      if (fallback.data) {
+        const raw = fallback.data;
+        const userIds = [raw.user_a_id, raw.user_b_id].filter(Boolean);
+        const { data: usersList } = await supabaseAdmin
+          .from('users')
+          .select('id, username, name, avatar_url')
+          .in('id', userIds);
+        const userMap = new Map((usersList || []).map((u) => [u.id, u]));
+        connection = {
+          ...raw,
+          user_a: userMap.get(raw.user_a_id) || null,
+          user_b: raw.user_b_id ? userMap.get(raw.user_b_id) || null : null,
+        };
+      }
     }
+
+    if (!connection) return { error: 'Ledger not found' };
+
+    const conn = connection as any;
+    const isUserA = conn.user_a_id === currentUser.id;
+    const isUserB = conn.user_b_id === currentUser.id;
+
+    // Check if it's an offline contact registered matching this user's phone number
+    let isPhoneMatch = false;
+    if (!isUserA && !isUserB && conn.user_b_id === null && conn.contact_phone && currentUser.phone) {
+      const cleanUserPhone = currentUser.phone.replace(/\D/g, '').slice(-10);
+      const cleanContactPhone = conn.contact_phone.replace(/\D/g, '').slice(-10);
+      isPhoneMatch = cleanUserPhone.length === 10 && cleanUserPhone === cleanContactPhone;
+    }
+
+    if (!isUserA && !isUserB && !isPhoneMatch) return { error: 'Unauthorized' };
+
+    // Ensure connection is not soft-deleted (non-blocking)
+    if ((isUserA && conn.deleted_by_a) || (isUserB && conn.deleted_by_b)) {
+      void supabaseAdmin
+        .from('connections')
+        .update(isUserA ? { deleted_by_a: false } : { deleted_by_b: false })
+        .eq('id', connectionId);
+    }
+
+    const isPersonal = conn.user_b_id === null;
+    const isDisconnected = !isPersonal && ((isUserA && conn.deleted_by_b) || (isUserB && conn.deleted_by_a));
+    const resolvedName = resolveConnectionPeerName(conn, currentUser.id);
+    const rawPeer = isPersonal
+      ? { id: 'offline', name: resolvedName, username: conn.contact_phone || 'Offline', isPersonal: true }
+      : (isUserA ? conn.user_b : conn.user_a);
+    const peer = {
+      ...rawPeer,
+      name: resolvedName,
+      isPersonal,
+    };
+
+    let rawTransactions = (transactionsResult.data ?? []) as any[];
+    if (transactionsResult.error && (!rawTransactions || rawTransactions.length === 0)) {
+      const fallbackTxns = await supabaseAdmin
+        .from('transactions')
+        .select('id, amount, direction, note, status, created_at, transaction_date, creator_id, counterparty_id')
+        .eq('connection_id', connectionId)
+        .order('transaction_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(50);
+      rawTransactions = (fallbackTxns.data ?? []) as any[];
+    }
+
+    const transactions = rawTransactions.map((t: any) => {
+      if (t.creator && t.creator.id !== currentUser.id && resolvedName) {
+        return {
+          ...t,
+          creator: { ...t.creator, real_name: t.creator.name, name: resolvedName },
+        };
+      }
+      if (t.counterparty && t.counterparty.id !== currentUser.id && resolvedName) {
+        return {
+          ...t,
+          counterparty: { ...t.counterparty, real_name: t.counterparty.name, name: resolvedName },
+        };
+      }
+      return t;
+    });
+    const netBalance = Number((balanceResult.data as any)?.net_amount ?? 0);
+    const hasMore = transactions.length === 50;
+    const totalCount = countResult.count ?? transactions.length;
+    const totalPendingCount = pendingCountResult.count ?? transactions.filter((t) => t.status === 'pending').length;
+
+    return {
+      connectionId,
+      peer,
+      transactions,
+      netBalance,
+      isDisconnected,
+      hasMore,
+      totalCount,
+      totalPendingCount,
+    };
+  } catch (err: any) {
+    console.error('[getLedgerDetailsAction] Unexpected error:', err);
+    return { error: err?.message || 'Failed to load ledger details' };
   }
-
-  if (!connection) return { error: 'Ledger not found' };
-
-  const conn = connection as any;
-  const isUserA = conn.user_a_id === currentUser.id;
-  const isUserB = conn.user_b_id === currentUser.id;
-
-  if (!isUserA && !isUserB) return { error: 'Unauthorized' };
-
-  // Ensure connection is not soft-deleted
-  if ((isUserA && conn.deleted_by_a) || (isUserB && conn.deleted_by_b)) {
-    await supabaseAdmin
-      .from('connections')
-      .update(isUserA ? { deleted_by_a: false } : { deleted_by_b: false })
-      .eq('id', connectionId);
-  }
-
-  const isPersonal = conn.user_b_id === null;
-  const isDisconnected = !isPersonal && ((isUserA && conn.deleted_by_b) || (isUserB && conn.deleted_by_a));
-  const resolvedName = resolveConnectionPeerName(conn, currentUser.id);
-  const rawPeer = isPersonal
-    ? { id: 'offline', name: resolvedName, username: conn.contact_phone || 'Offline', isPersonal: true }
-    : (isUserA ? conn.user_b : conn.user_a);
-  const peer = {
-    ...rawPeer,
-    name: resolvedName,
-    isPersonal,
-  };
-
-  const transactions = ((transactionsResult.data ?? []) as any[]).map((t: any) => {
-    if (t.creator && t.creator.id !== currentUser.id && resolvedName) {
-      return {
-        ...t,
-        creator: { ...t.creator, real_name: t.creator.name, name: resolvedName },
-      };
-    }
-    if (t.counterparty && t.counterparty.id !== currentUser.id && resolvedName) {
-      return {
-        ...t,
-        counterparty: { ...t.counterparty, real_name: t.counterparty.name, name: resolvedName },
-      };
-    }
-    return t;
-  });
-  const netBalance = Number((balanceResult.data as any)?.net_amount ?? 0);
-  const hasMore = transactions.length === 50;
-  const totalCount = countResult.count ?? transactions.length;
-  const totalPendingCount = pendingCountResult.count ?? transactions.filter((t) => t.status === 'pending').length;
-
-  return {
-    connectionId,
-    peer,
-    transactions,
-    netBalance,
-    isDisconnected,
-    hasMore,
-    totalCount,
-    totalPendingCount,
-  };
 }
 
 export async function loadMoreTransactionsAction(

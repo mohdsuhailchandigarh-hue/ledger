@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
+import { AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import LedgerSkeleton from './LedgerSkeleton';
 import LedgerClient from './LedgerClient';
 import { useSwipeDownDismiss } from '@/lib/hooks/useSwipeDownDismiss';
@@ -22,6 +23,7 @@ export type ActiveLedgerData = {
   hasMore?: boolean;
   totalCount?: number;
   totalPendingCount?: number;
+  error?: string | null;
 };
 
 type Props = {
@@ -30,6 +32,7 @@ type Props = {
   onClose: () => void;
   onRefresh: () => void;
   onDeleteSuccess?: (connectionId: string) => void;
+  onPendingTxnDeleted?: (deletedTxnId: string) => void;
 };
 
 export default function ConnectionLedgerModal({
@@ -38,6 +41,7 @@ export default function ConnectionLedgerModal({
   onClose,
   onRefresh,
   onDeleteSuccess,
+  onPendingTxnDeleted,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -140,7 +144,119 @@ export default function ConnectionLedgerModal({
             position: 'relative',
           }}
         >
-          {activeLedger.transactions === null ? (
+          {activeLedger.error ? (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                background: 'var(--bg-base)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '1rem',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <button
+                  onClick={dismissSheet}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <ArrowLeft size={18} />
+                </button>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {activeLedger.peer?.name || 'Ledger'}
+                </span>
+              </div>
+              <div
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '2rem',
+                  textAlign: 'center',
+                  gap: '1rem',
+                }}
+              >
+                <div
+                  style={{
+                    width: 54,
+                    height: 54,
+                    borderRadius: '50%',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#f87171',
+                  }}
+                >
+                  <AlertCircle size={26} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 0.4rem 0' }}>
+                    Unable to load ledger
+                  </h3>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0, maxWidth: 320 }}>
+                    {activeLedger.error}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <button
+                    onClick={onRefresh}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: '10px',
+                      background: 'var(--accent-primary, #3b82f6)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <RefreshCw size={14} />
+                    <span>Try Again</span>
+                  </button>
+                  <button
+                    onClick={dismissSheet}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: '10px',
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : activeLedger.transactions === null ? (
             <LedgerSkeleton
               peerName={activeLedger.peer.name}
               peerAvatar={activeLedger.peer.avatar_url}
@@ -160,6 +276,7 @@ export default function ConnectionLedgerModal({
               onBack={dismissSheet}
               onRefresh={onRefresh}
               onDeleteSuccess={onDeleteSuccess}
+              onPendingTxnDeleted={onPendingTxnDeleted}
               totalCount={activeLedger.totalCount}
               totalPendingCount={activeLedger.totalPendingCount}
             />

@@ -1,7 +1,7 @@
 import { getUserFromSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
-import { getPendingActionsAction } from '@/lib/actions/transaction.actions';
-import GlobalPendingOverlay from '@/components/notifications/GlobalPendingOverlay';
+import { Suspense } from 'react';
+import PendingOverlayLoader from '@/components/notifications/PendingOverlayLoader';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -16,11 +16,11 @@ export default async function UserLayout({
   const user = await getUserFromSession();
   if (!user) redirect('/login');
 
-  const { actions } = await getPendingActionsAction();
-
   return (
     <div style={{ width: '100%', minHeight: '100dvh' }}>
-      <GlobalPendingOverlay actions={actions as any} currentUserId={user.id} />
+      <Suspense fallback={null}>
+        <PendingOverlayLoader currentUserId={user.id} />
+      </Suspense>
       <main
         style={{
           minHeight: '100dvh',

@@ -151,33 +151,32 @@ export default function LedgerSkeleton({
               minWidth: 0,
             }}
           >
-            {onBack ? (
-              <button
-                onClick={onBack}
-                aria-label="Back"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  padding: 0,
-                }}
-              >
-                <ArrowLeft size={18} strokeWidth={2.2} />
-              </button>
-            ) : (
-              <div
-                className="skeleton"
-                style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0 }}
-              />
-            )}
+            <button
+              onClick={() => {
+                if (onBack) {
+                  onBack();
+                } else if (typeof window !== 'undefined') {
+                  window.history.back();
+                }
+              }}
+              aria-label="Back"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: '#ffffff',
+                cursor: 'pointer',
+                flexShrink: 0,
+                padding: 0,
+              }}
+            >
+              <ArrowLeft size={18} strokeWidth={2.2} />
+            </button>
 
             {/* Avatar */}
             {peerAvatar ? (

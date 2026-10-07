@@ -1084,42 +1084,29 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                    ══════════════════════════════════════════════════════ */}
                 {step === 'not_found' && (
                   <form onSubmit={(e) => { e.preventDefault(); if (!nameJustBlurredRef.current) handleAddPersonalContact(); }}>
-                    {/* Warning Notice Box */}
-                    <div
-                      style={{
-                        background: 'rgba(245, 158, 11, 0.1)',
-                        border: '1px solid rgba(245, 158, 11, 0.25)',
-                        borderRadius: '12px',
-                        padding: '0.875rem',
-                        marginBottom: '1.25rem',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '0.625rem',
-                      }}
-                    >
-                      <AlertCircle size={17} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
-                      <div>
-                        <h5
-                          style={{
-                            fontSize: '0.8125rem',
-                            fontWeight: 700,
-                            color: '#f59e0b',
-                            margin: '0 0 2px 0',
-                          }}
-                        >
-                          User not found on Shared Ledger
-                        </h5>
-                        <p
-                          style={{
-                            fontSize: '0.75rem',
-                            color: 'rgba(255, 255, 255, 0.75)',
-                            margin: 0,
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          No registered account exists for <strong>+91 {phone}</strong>. You can add them as a personal contact to track payments and balances privately in your ledger.
-                        </p>
-                      </div>
+                    {/* Step Header: Enter user name */}
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <h4
+                        style={{
+                          fontSize: '1.1875rem',
+                          fontWeight: 700,
+                          color: 'var(--text-primary)',
+                          margin: '0 0 0.35rem 0',
+                          letterSpacing: '-0.02em',
+                        }}
+                      >
+                        Enter user name
+                      </h4>
+                      <p
+                        style={{
+                          fontSize: '0.8125rem',
+                          color: 'var(--text-muted)',
+                          margin: 0,
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        Enter a name for +91 {phone} to add them to your ledger.
+                      </p>
                     </div>
 
                     {/* Contact Name Input (Instagram style) */}
@@ -1149,7 +1136,7 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                           marginBottom: '2px',
                         }}
                       >
-                        Contact name
+                        User name
                       </span>
 
                       <input
@@ -1297,10 +1284,10 @@ export default function AddConnectionCTA({ currentUserId }: Props) {
                       {addingPersonal ? (
                         <>
                           <Loader2 size={16} className="animate-spin" />
-                          <span>Creating Contact...</span>
+                          <span>Adding Connection...</span>
                         </>
                       ) : (
-                        <span>Add as Personal Contact</span>
+                        <span>Add Connection</span>
                       )}
                     </button>
                   </form>

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { UserCheck, Search, X, User, CheckCheck, Lock, UserPlus, Clock, Sparkles, CheckCircle2 } from 'lucide-react';
 import { formatAmount } from '@/lib/utils/currency';
-import ConnectionLedgerModal from '@/components/ledger/ConnectionLedgerModal';
+import ConnectionLedgerModal, { ActiveLedgerData } from '@/components/ledger/ConnectionLedgerModal';
 import { getLedgerDetailsAction } from '@/lib/actions/transaction.actions';
 import { resolveConnectionPeerName } from '@/lib/utils/connection';
 import { sendConnectionRequestAction, respondToConnectionRequestAction } from '@/lib/actions/connection.actions';
@@ -95,16 +95,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
   const [items, setItems] = useState<Connection[]>(connections);
   const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
-  const [activeLedger, setActiveLedger] = useState<{
-    connectionId: string;
-    peer: { id: string; name: string; username: string; avatar_url?: string | null; isPersonal?: boolean };
-    netBalance: number;
-    transactions: any[] | null;
-    isDisconnected: boolean;
-    hasMore?: boolean;
-    totalCount?: number;
-    totalPendingCount?: number;
-  } | null>(null);
+  const [activeLedger, setActiveLedger] = useState<ActiveLedgerData | null>(null);
 
   const [selectedUnclaimedConn, setSelectedUnclaimedConn] = useState<Connection | null>(null);
   const [isSendingUnclaimedReq, setIsSendingUnclaimedReq] = useState(false);
@@ -124,6 +115,18 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
 
   const handleDeleteSuccess = useCallback((deletedId: string) => {
     setItems((prev) => prev.filter((c) => c.id !== deletedId));
+  }, []);
+
+  const handlePendingTxnDeletedInModal = useCallback((deletedTxnId: string) => {
+    setActiveLedger((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        transactions: prev.transactions ? prev.transactions.filter((t: any) => t.id !== deletedTxnId) : prev.transactions,
+        totalCount: typeof prev.totalCount === 'number' ? Math.max(0, prev.totalCount - 1) : prev.totalCount,
+        totalPendingCount: typeof prev.totalPendingCount === 'number' ? Math.max(0, prev.totalPendingCount - 1) : prev.totalPendingCount,
+      };
+    });
   }, []);
 
   useEffect(() => {
@@ -151,15 +154,24 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
       netBalance: currentBalance,
       transactions: null,
       isDisconnected: false,
+      error: null,
     });
 
     if (typeof window !== 'undefined') {
       window.history.pushState({ ledgerOpen: true }, '');
     }
 
-    // 2. Fetch full transactions via Server Action in background
+    // 2. Fetch full transactions via Server Action with safety timeout
     try {
-      const res = await getLedgerDetailsAction(connId);
+      const timeoutPromise = new Promise<{ error: string }>((resolve) =>
+        setTimeout(() => resolve({ error: 'Connection timed out. Tap retry.' }), 7500)
+      );
+
+      const res = await Promise.race([
+        getLedgerDetailsAction(connId),
+        timeoutPromise,
+      ]);
+
       if (res && !('error' in res)) {
         setActiveLedger({
           connectionId: res.connectionId,
@@ -170,10 +182,30 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
           hasMore: res.hasMore,
           totalCount: res.totalCount,
           totalPendingCount: res.totalPendingCount,
+          error: null,
+        });
+      } else {
+        const errorMsg = (res && 'error' in res) ? res.error : 'Failed to load ledger';
+        console.warn('[ConnectionGrid] Failed to load ledger details:', errorMsg);
+        setActiveLedger((current) => {
+          if (!current || current.connectionId !== connId) return current;
+          return {
+            ...current,
+            transactions: [],
+            error: errorMsg,
+          };
         });
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to load ledger details:', e);
+      setActiveLedger((current) => {
+        if (!current || current.connectionId !== connId) return current;
+        return {
+          ...current,
+          transactions: [],
+          error: e?.message || 'Failed to load ledger. Tap retry.',
+        };
+      });
     }
   }, []);
 
@@ -209,8 +241,15 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
 
   const reloadActiveLedger = useCallback(async () => {
     if (!activeLedger) return;
+    setActiveLedger((current) => current ? { ...current, transactions: null, error: null } : null);
     try {
-      const res = await getLedgerDetailsAction(activeLedger.connectionId);
+      const timeoutPromise = new Promise<{ error: string }>((resolve) =>
+        setTimeout(() => resolve({ error: 'Connection timed out. Tap retry.' }), 7500)
+      );
+      const res = await Promise.race([
+        getLedgerDetailsAction(activeLedger.connectionId),
+        timeoutPromise,
+      ]);
       if (res && !('error' in res)) {
         setActiveLedger({
           connectionId: res.connectionId,
@@ -221,11 +260,20 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
           hasMore: res.hasMore,
           totalCount: res.totalCount,
           totalPendingCount: res.totalPendingCount,
+          error: null,
         });
+      } else {
+        const errorMsg = (res && 'error' in res) ? res.error : 'Failed to reload ledger';
+        setActiveLedger((current) =>
+          current ? { ...current, transactions: [], error: errorMsg } : null
+        );
       }
       router.refresh();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to reload ledger:', e);
+      setActiveLedger((current) =>
+        current ? { ...current, transactions: [], error: e?.message || 'Failed to reload' } : null
+      );
     }
   }, [activeLedger, router]);
 
@@ -1261,6 +1309,7 @@ export default function ConnectionGrid({ connections, currentUserId, balances, l
         onClose={closeLedger}
         onRefresh={reloadActiveLedger}
         onDeleteSuccess={handleDeleteSuccess}
+        onPendingTxnDeleted={handlePendingTxnDeletedInModal}
       />
     </div>
   );

@@ -4,10 +4,12 @@ import { getUserFromSession, getAdminSession } from '@/lib/auth/session';
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const isAdmin = await getAdminSession();
-  if (isAdmin) redirect('/admin');
+  const [isAdmin, user] = await Promise.all([
+    getAdminSession(),
+    getUserFromSession(),
+  ]);
 
-  const user = await getUserFromSession();
+  if (isAdmin) redirect('/admin');
   if (user) redirect('/dashboard');
 
   redirect('/login');

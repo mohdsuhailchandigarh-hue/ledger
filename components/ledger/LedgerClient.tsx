@@ -33,6 +33,7 @@ type Props = {
   onBack?: () => void;
   onRefresh?: () => void | Promise<void>;
   onDeleteSuccess?: (connectionId: string) => void;
+  onPendingTxnDeleted?: (deletedTxnId: string) => void;
   totalCount?: number;
   totalPendingCount?: number;
   registeredUser?: { id: string; name: string; username: string; avatar_url?: string | null } | null;
@@ -50,6 +51,7 @@ export default function LedgerClient({
   onBack,
   onRefresh,
   onDeleteSuccess,
+  onPendingTxnDeleted,
   totalCount,
   totalPendingCount,
   registeredUser,
@@ -194,10 +196,10 @@ export default function LedgerClient({
     setItems((prev) => prev.filter((t) => t.id !== deletedTxnId));
     setPendingCount((prev) => Math.max(0, prev - 1));
     setTotalEntries((prev) => Math.max(0, prev - 1));
-    if (onRefresh) {
-      onRefresh();
+    if (onPendingTxnDeleted) {
+      onPendingTxnDeleted(deletedTxnId);
     }
-  }, [onRefresh]);
+  }, [onPendingTxnDeleted]);
 
   useEffect(() => {
     setItems(transactions);

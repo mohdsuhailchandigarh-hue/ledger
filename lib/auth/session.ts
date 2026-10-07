@@ -89,8 +89,13 @@ export async function createUserSession(userId: string): Promise<string> {
     expires: expiresAt,
   });
 
+  sessionVerifiedCache.set(token, Date.now());
   return token;
 }
+
+// In-memory cache to prevent repetitive DB queries for already-verified session tokens
+const sessionVerifiedCache = new Map<string, number>();
+const SESSION_CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
 // Wrap session retrieval in React cache() to prevent duplicate database or cryptographic parsing on a single request
 export const getUserFromSession = cache(async (): Promise<SessionUser | null> => {
@@ -127,11 +132,15 @@ export const getUserFromSession = cache(async (): Promise<SessionUser | null> =>
   }
 
   // Hybrid session check: verify active session in DB on full navigations/page refreshes
-  // (Skip DB hit during Server Actions to keep interactions fast)
+  // (Skip DB hit during Server Actions or if verified within the last 60s to keep navigations instant)
+  const now = Date.now();
+  const lastVerified = sessionVerifiedCache.get(token);
+  const isRecentlyVerified = Boolean(lastVerified && now - lastVerified < SESSION_CACHE_TTL_MS);
+
   const reqHeaders = await headers();
   const isServerAction = reqHeaders.has('next-action');
 
-  if (!isServerAction) {
+  if (!isServerAction && !isRecentlyVerified) {
     try {
       const { data: dbSession, error } = await supabaseAdmin
         .from('sessions')
@@ -151,6 +160,7 @@ export const getUserFromSession = cache(async (): Promise<SessionUser | null> =>
           .maybeSingle();
 
         if (dbUser && !dbUser.is_active) {
+          sessionVerifiedCache.delete(token);
           redirect('/api/auth/clear-session');
         }
 
@@ -164,6 +174,9 @@ export const getUserFromSession = cache(async (): Promise<SessionUser | null> =>
             });
           } catch {}
         })();
+        sessionVerifiedCache.set(token, now);
+      } else {
+        sessionVerifiedCache.set(token, now);
       }
     } catch (err: any) {
       if (err?.digest?.startsWith?.('NEXT_REDIRECT')) throw err;
@@ -179,6 +192,7 @@ export async function deleteUserSession(): Promise<void> {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (token) {
+    sessionVerifiedCache.delete(token);
     // Delete database session in background without blocking response
     (async () => {
       try {

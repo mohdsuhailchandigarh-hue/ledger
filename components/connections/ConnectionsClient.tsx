@@ -11,7 +11,7 @@ import {
   updatePersonalContactAction
 } from '@/lib/actions/connection.actions';
 import { getLedgerDetailsAction } from '@/lib/actions/transaction.actions';
-import ConnectionLedgerModal from '@/components/ledger/ConnectionLedgerModal';
+import ConnectionLedgerModal, { ActiveLedgerData } from '@/components/ledger/ConnectionLedgerModal';
 import { useBodyScrollLock } from '@/lib/hooks/useBodyScrollLock';
 import { Search, UserPlus, Check, X, Clock, Users, Link2, Phone, AlertCircle, Edit2, ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -93,17 +93,7 @@ export default function ConnectionsClient({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // Native In-App Ledger Full-Screen SPA view state (No Safari URL bar, No bottom action buttons)
-  const [activeLedger, setActiveLedger] = useState<{
-    connectionId: string;
-    peer: any;
-    netBalance: number;
-    transactions: any[] | null;
-    isDisconnected: boolean;
-    hasMore?: boolean;
-    totalCount?: number;
-    totalPendingCount?: number;
-  } | null>(null);
+  const [activeLedger, setActiveLedger] = useState<ActiveLedgerData | null>(null);
 
   const [items, setItems] = useState<Connection[]>(connections);
   const [mounted, setMounted] = useState(false);
@@ -118,6 +108,18 @@ export default function ConnectionsClient({
 
   const handleDeleteSuccess = useCallback((deletedId: string) => {
     setItems((prev) => prev.filter((c) => c.id !== deletedId));
+  }, []);
+
+  const handlePendingTxnDeletedInModal = useCallback((deletedTxnId: string) => {
+    setActiveLedger((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        transactions: prev.transactions ? prev.transactions.filter((t: any) => t.id !== deletedTxnId) : prev.transactions,
+        totalCount: typeof prev.totalCount === 'number' ? Math.max(0, prev.totalCount - 1) : prev.totalCount,
+        totalPendingCount: typeof prev.totalPendingCount === 'number' ? Math.max(0, prev.totalPendingCount - 1) : prev.totalPendingCount,
+      };
+    });
   }, []);
 
   useEffect(() => {
@@ -145,15 +147,24 @@ export default function ConnectionsClient({
       netBalance: currentBalance,
       transactions: null,
       isDisconnected: false,
+      error: null,
     });
 
     if (typeof window !== 'undefined') {
       window.history.pushState({ ledgerOpen: true }, '');
     }
 
-    // 2. Fetch full transactions via Server Action
+    // 2. Fetch full transactions via Server Action with safety timeout
     try {
-      const res = await getLedgerDetailsAction(connId);
+      const timeoutPromise = new Promise<{ error: string }>((resolve) =>
+        setTimeout(() => resolve({ error: 'Connection timed out. Tap retry.' }), 7500)
+      );
+
+      const res = await Promise.race([
+        getLedgerDetailsAction(connId),
+        timeoutPromise,
+      ]);
+
       if (res && !('error' in res)) {
         setActiveLedger({
           connectionId: res.connectionId,
@@ -164,10 +175,30 @@ export default function ConnectionsClient({
           hasMore: res.hasMore,
           totalCount: res.totalCount,
           totalPendingCount: res.totalPendingCount,
+          error: null,
+        });
+      } else {
+        const errorMsg = (res && 'error' in res) ? res.error : 'Failed to load ledger';
+        console.warn('[ConnectionsClient] Failed to load ledger details:', errorMsg);
+        setActiveLedger((current) => {
+          if (!current || current.connectionId !== connId) return current;
+          return {
+            ...current,
+            transactions: [],
+            error: errorMsg,
+          };
         });
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to load ledger details:', e);
+      setActiveLedger((current) => {
+        if (!current || current.connectionId !== connId) return current;
+        return {
+          ...current,
+          transactions: [],
+          error: e?.message || 'Failed to load ledger. Tap retry.',
+        };
+      });
     }
   }, []);
 
@@ -202,8 +233,15 @@ export default function ConnectionsClient({
 
   const reloadActiveLedger = useCallback(async () => {
     if (!activeLedger) return;
+    setActiveLedger((current) => current ? { ...current, transactions: null, error: null } : null);
     try {
-      const res = await getLedgerDetailsAction(activeLedger.connectionId);
+      const timeoutPromise = new Promise<{ error: string }>((resolve) =>
+        setTimeout(() => resolve({ error: 'Connection timed out. Tap retry.' }), 7500)
+      );
+      const res = await Promise.race([
+        getLedgerDetailsAction(activeLedger.connectionId),
+        timeoutPromise,
+      ]);
       if (res && !('error' in res)) {
         setActiveLedger({
           connectionId: res.connectionId,
@@ -214,11 +252,20 @@ export default function ConnectionsClient({
           hasMore: res.hasMore,
           totalCount: res.totalCount,
           totalPendingCount: res.totalPendingCount,
+          error: null,
         });
+      } else {
+        const errorMsg = (res && 'error' in res) ? res.error : 'Failed to reload ledger';
+        setActiveLedger((current) =>
+          current ? { ...current, transactions: [], error: errorMsg } : null
+        );
       }
       router.refresh();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to reload ledger:', e);
+      setActiveLedger((current) =>
+        current ? { ...current, transactions: [], error: e?.message || 'Failed to reload' } : null
+      );
     }
   }, [activeLedger, router]);
 
@@ -1256,6 +1303,7 @@ export default function ConnectionsClient({
         onClose={closeLedger}
         onRefresh={reloadActiveLedger}
         onDeleteSuccess={handleDeleteSuccess}
+        onPendingTxnDeleted={handlePendingTxnDeletedInModal}
       />
     </div>
   );
