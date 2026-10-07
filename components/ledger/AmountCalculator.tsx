@@ -213,11 +213,12 @@ export default function AmountCalculator({
       <div
         style={{
           flex: 1,
+          minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '1rem 0',
+          padding: '0.5rem 0',
           gap: '0.25rem',
         }}
       >
@@ -317,9 +318,10 @@ export default function AmountCalculator({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
-          gridAutoRows: 'clamp(54px, 7.2dvh, 64px)',
-          gap: 'clamp(8px, 1.5vw, 12px)',
-          marginBottom: '1rem',
+          gridAutoRows: 'clamp(46px, 6.2dvh, 58px)',
+          gap: 'clamp(6px, 1.2vw, 10px)',
+          marginBottom: '0.75rem',
+          flexShrink: 0,
         }}
       >
         {KEYPAD_BUTTONS.map((btn) => {
@@ -411,6 +413,7 @@ export default function AmountCalculator({
           alignItems: 'center',
           justifyContent: 'center',
           width: '100%',
+          height: 'clamp(48px, 6dvh, 52px)',
           cursor: hasValue ? 'pointer' : 'not-allowed',
           letterSpacing: '0.01em',
           background: hasValue
@@ -419,7 +422,7 @@ export default function AmountCalculator({
           color: hasValue ? 'white' : 'var(--text-muted)',
           border: hasValue ? 'none' : '1px solid var(--border-subtle)',
           boxShadow: hasValue ? 'var(--shadow-brand)' : 'none',
-          padding: '0.875rem',
+          padding: '0.75rem',
           borderRadius: '14px',
           fontWeight: 600,
           fontSize: '1rem',

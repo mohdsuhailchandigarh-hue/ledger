@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createTransactionAction } from '@/lib/actions/transaction.actions';
 import {
@@ -35,6 +36,7 @@ export default function CreateTransactionSheet({
   onSuccess,
 }: Props) {
   useBodyScrollLock(true);
+  const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<Step>('amount');
   const [amount, setAmount] = useState(0);
   const [direction, setDirection] = useState<'get' | 'give'>('get');
@@ -50,6 +52,10 @@ export default function CreateTransactionSheet({
   const [transactionDate, setTransactionDate] = useState(todayStr);
   const noteRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Auto-focus the note input when we arrive on the note step
   useEffect(() => {
@@ -106,7 +112,9 @@ export default function CreateTransactionSheet({
   const accentMuted = isGet ? 'var(--success-muted)' : 'var(--danger-muted)';
   const accentBorder = isGet ? 'var(--success-border)' : 'var(--danger-border)';
 
-  return (
+  if (!mounted || typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {/* ── Backdrop ────────────────────────────────────────────────────────── */}
       <motion.div
@@ -124,7 +132,7 @@ export default function CreateTransactionSheet({
         initial={{ y: '100%', opacity: 0.8 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: '100%', opacity: 0 }}
-        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         className="create-txn-sheet"
       >
         {/* Drag handle */}
@@ -134,7 +142,7 @@ export default function CreateTransactionSheet({
             height: 4,
             background: 'var(--border-strong)',
             borderRadius: '9999px',
-            margin: '0 auto 0.875rem',
+            margin: '0 auto 0.75rem',
             flexShrink: 0,
           }}
         />
@@ -590,6 +598,7 @@ export default function CreateTransactionSheet({
         <style>{`
           .create-txn-sheet {
             position: fixed;
+            top: 0;
             bottom: 0;
             left: 0;
             right: 0;
@@ -600,18 +609,21 @@ export default function CreateTransactionSheet({
             background: var(--bg-surface);
             border: none;
             border-radius: 0;
-            padding: 1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
-            z-index: 60;
+            padding: calc(env(safe-area-inset-top, 0px) + 0.75rem) 1.25rem calc(1rem + env(safe-area-inset-bottom, 0px));
+            z-index: 100000;
             box-shadow: none;
             height: 100dvh;
             max-height: 100dvh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            box-sizing: border-box;
           }
 
           @media (min-width: 769px) {
             .create-txn-sheet {
+              top: auto;
+              bottom: 0;
               width: 100%;
               max-width: 520px;
               height: 680px;
@@ -626,17 +638,22 @@ export default function CreateTransactionSheet({
             }
           }
 
+          .overlay-backdrop {
+            z-index: 99999 !important;
+          }
+
           @media (max-width: 768px) {
             .overlay-backdrop {
-              background: var(--bg-base) !important;
-              backdrop-filter: none !important;
-              -webkit-backdrop-filter: none !important;
+              background: rgba(0, 0, 0, 0.75) !important;
+              backdrop-filter: blur(12px) !important;
+              -webkit-backdrop-filter: blur(12px) !important;
             }
           }
 
           @keyframes spin { to { transform: rotate(360deg); } }
         `}</style>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

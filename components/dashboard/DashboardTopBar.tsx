@@ -121,7 +121,7 @@ export default function DashboardTopBar({
       <div
         className="dashboard-topbar-wrapper"
         style={{
-          paddingTop: 'max(0.625rem, env(safe-area-inset-top, 0.625rem))',
+          paddingTop: 'max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.85rem))',
           paddingBottom: 0,
           marginBottom: '0.85rem',
         }}

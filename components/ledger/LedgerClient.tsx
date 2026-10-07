@@ -297,8 +297,6 @@ export default function LedgerClient({
               left: 0,
               right: 0,
               background: 'var(--bg-base)',
-              backdropFilter: 'blur(60px) saturate(220%)',
-              WebkitBackdropFilter: 'blur(60px) saturate(220%)',
               pointerEvents: 'none',
               zIndex: 0,
             }}
@@ -1025,7 +1023,7 @@ export default function LedgerClient({
           style={{
             maxWidth: '720px',
             width: 'calc(100% - clamp(1rem, 4vw, 2rem))',
-            margin: '0 auto 6.5rem',
+            margin: '0 auto 1.5rem',
             overflow: 'hidden',
             borderRadius: '20px',
             background: 'linear-gradient(180deg, rgba(20, 20, 26, 0.75) 0%, rgba(14, 14, 18, 0.9) 100%)',

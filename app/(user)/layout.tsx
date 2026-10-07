@@ -27,7 +27,7 @@ export default async function UserLayout({
           background: 'var(--bg-base)',
           width: '100%',
           boxSizing: 'border-box',
-          paddingBottom: '5rem',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)',
         }}
       >
         {children}

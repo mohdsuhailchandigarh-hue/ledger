@@ -662,7 +662,7 @@ export default function LedgerTimeline({
       <div
         style={{
           textAlign: 'center',
-          padding: '4rem 2rem',
+          padding: '4rem 2rem calc(env(safe-area-inset-bottom, 0px) + 5rem)',
           color: 'var(--text-muted)',
         }}
       >
@@ -700,7 +700,7 @@ export default function LedgerTimeline({
 
   return (
     <>
-      <div>
+      <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 5rem)' }}>
         {groupedSections.map((section) => (
           <div key={section.key}>
             {/* Date Section Header */}
