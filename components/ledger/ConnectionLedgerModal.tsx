@@ -113,8 +113,6 @@ export default function ConnectionLedgerModal({
           width: '100%',
           maxWidth: 680,
           margin: '0 auto',
-          height: 'calc(100dvh - max(20px, calc(env(safe-area-inset-top, 0px) + 12px)))',
-          maxHeight: 'calc(100dvh - max(20px, calc(env(safe-area-inset-top, 0px) + 12px)))',
           background: 'var(--bg-base)',
           borderTopLeftRadius: '28px',
           borderTopRightRadius: '28px',

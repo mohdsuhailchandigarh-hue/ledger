@@ -106,7 +106,7 @@ export function useSwipeDownDismiss({
       sheetRef.current.style.pointerEvents = 'none';
       sheetRef.current.style.animation = 'none';
       sheetRef.current.style.transition = 'transform 0.24s cubic-bezier(0.32, 0.72, 0, 1)';
-      sheetRef.current.style.transform = 'translate3d(0, 100dvh, 0)';
+      sheetRef.current.style.transform = 'translate3d(0, 100%, 0)';
     }
     if (backdropRef.current) {
       backdropRef.current.style.pointerEvents = 'none';
@@ -144,6 +144,7 @@ export function useSwipeDownDismiss({
     setTimeout(() => {
       if (sheetRef.current && !isDismissingRef.current) {
         sheetRef.current.style.transition = '';
+        sheetRef.current.style.transform = '';
       }
       if (backdropRef.current && !isDismissingRef.current) {
         backdropRef.current.style.transition = '';

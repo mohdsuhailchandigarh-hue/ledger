@@ -284,7 +284,14 @@ export default function LedgerClient({
 
   return (
     <>
-      <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div
+        style={{
+          minHeight: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2.5rem)',
+        }}
+      >
         {/* Header - Fixed seamlessly into the rounded shape top of the popup with exact dashboard CTA glass effect & blur veil */}
         <div
           style={{
@@ -1740,17 +1747,18 @@ export default function LedgerClient({
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.92 }}
         onClick={() => setShowCreate(true)}
+        className="ledger-new-entry-btn"
         aria-label="New Entry"
         title="Add new entry"
         style={{
           position: 'fixed',
-          bottom: 'max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.5rem))',
-          right: '1.5rem',
-          width: 54,
-          height: 54,
+          bottom: 'max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))',
+          right: 'max(1.25rem, calc(env(safe-area-inset-right, 0px) + 1.25rem))',
+          width: 56,
+          height: 56,
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, #065DE8 0%, #3897f0 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.22)',
+          background: 'linear-gradient(135deg, #065DE8 0%, #1e75ff 52%, #3897f0 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -1760,11 +1768,16 @@ export default function LedgerClient({
           color: 'white',
         }}
       >
-        <Plus size={24} strokeWidth={2.4} />
+        <Plus size={25} strokeWidth={2.4} />
       </motion.button>
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @media (min-width: 681px) {
+          .ledger-new-entry-btn {
+            right: calc((100vw - 680px) / 2 + 1.25rem) !important;
+          }
+        }
       `}</style>
     </>
   );

@@ -36,6 +36,7 @@ export default function LedgerSkeleton({
         background: 'var(--bg-base)',
         color: 'var(--text-primary)',
         width: '100%',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)',
         ...(isOverlay
           ? {
               position: 'fixed',

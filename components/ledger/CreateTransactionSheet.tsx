@@ -612,8 +612,8 @@ export default function CreateTransactionSheet({
             padding: calc(env(safe-area-inset-top, 0px) + 0.75rem) 1.25rem calc(1rem + env(safe-area-inset-bottom, 0px));
             z-index: 100000;
             box-shadow: none;
-            height: 100dvh;
-            max-height: 100dvh;
+            height: 100%;
+            max-height: 100%;
             display: flex;
             flex-direction: column;
             overflow: hidden;
